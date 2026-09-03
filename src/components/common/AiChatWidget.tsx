@@ -17,14 +17,35 @@ export const AiChatWidget: React.FC = () => {
 
   const getLocalReply = (q: string): string => {
     const t = q.toLowerCase();
-    if (t.includes('cuota') || t.includes('precio') || t.includes('vale') || t.includes('pago') || t.includes('cuanto')) {
-      return '💰 Cuotas: El precio depende del plan de tu gimnasio. En tu app no mostramos precios al socio (privado). Consultá en recepción o en /admin → Planes. ¿Querés que te diga tu plan actual y vencimiento? Decime tu DNI y te lo busco al instante.';
+    // Respuestas coherentes y contextuales, simulando tiempo real
+    if (t.includes('hola') && t.length < 10) {
+      return '¡Hola! 👋 Soy tu asistente FuerzaFit. Estoy acá para ayudarte en tiempo real. ¿Querés saber sobre tu cuota, rutina o clases?';
     }
-    if (t.includes('rutina') || t.includes('ejercicio') || t.includes('peso')) return '🏋️ Para rutina: decime tu objetivo (hipertrofia/fuerza) y días por semana y te armo una base en tiempo real. Descansá 60-90s entre series y priorizá técnica.';
-    if (t.includes('dolor') || t.includes('lesion')) return '🩺 Si hay dolor articular, frená la serie, bajá carga 50% y avisá al profe en sala. No sigas con dolor punzante.';
-    if (t.includes('horario') || t.includes('clase')) return '📅 Clases: en tu app → Clases ves grilla y cupos en tiempo real. Reservá con 2h de anticipación.';
-    if (t.includes('admin') || t.includes('dueño')) return '🏢 Para dueños: en /admin gestionás socios, caja y molinete por DNI en tiempo real. ¿Necesitás ayuda con altas o reportes?';
-    return `¡Gracias por tu consulta! Te respondo en tiempo real, palabra por palabra. Preguntame sobre rutinas, pagos, clases o el uso de la app. Tu consulta fue: "${q.slice(0,120)}"`;
+    if (t.includes('cuota') || t.includes('precio') || t.includes('vale') || t.includes('cuanto cuesta') || t.includes('cuanto vale')) {
+      return '💰 ¡Hola! El valor de la cuota depende de tu plan (ej: Musculación, Completo, Trimestral). Por privacidad no muestro precios acá, pero puedo decirte tu plan actual, cuánto te queda y cuándo vence si me decís tu DNI. ¿Me lo pasás?';
+    }
+    if (t.includes('pago') || t.includes('pagar') || t.includes('mercado')) {
+      return '💳 Podés pagar en recepción (efectivo, transferencia, débito) o desde tu perfil. Si ya pagaste y no se refleja, decime tu DNI y lo verifico al instante.';
+    }
+    if (t.includes('rutina') || t.includes('ejercicio') || t.includes('entrenar') || t.includes('peso')) {
+      return '🏋️ ¡Vamos! Contame tu objetivo (hipertrofia, fuerza, bajar grasa) y cuántos días entrenás por semana. Te armo una base en tiempo real con series, repeticiones y descansos. ¿Cuántos días podés?';
+    }
+    if (t.includes('dolor') || t.includes('lesion') || t.includes('molestia')) {
+      return '🩺 Si sentís dolor articular o punzante, frená la serie ya, bajá la carga al 50% y avisá al profe en sala. No sigas con dolor. ¿Dónde te duele?';
+    }
+    if (t.includes('horario') || t.includes('clase') || t.includes('reserva')) {
+      return '📅 En tu app → Clases ves la grilla en vivo, el profe y los cupos. Reservá con 2h de anticipación y si se llena quedás en lista de espera automática. ¿Qué clase buscás?';
+    }
+    if (t.includes('admin') || t.includes('dueño') || t.includes('empleado') || t.includes('gimnasio')) {
+      return '🏢 Para dueños/staff: en /admin gestionás socios (DNI), caja con descuentos, molinete y reportes. Para crear empleados (recepción/entrenador) andá a Equipo → Nuevo empleado. ¿Te ayudo con eso?';
+    }
+    if (t.includes('olvide') || t.includes('contraseña') || t.includes('recuperar') || t.includes('soporte') || t.includes('ayuda')) {
+      return '🔑 Para recuperar tu cuenta: en el login tocá “¿Olvidaste tu contraseña?” → poné tu email → te llega un link a /reset-password. Si no llega, revisá spam o escribí a soporte@fuerzafit.com';
+    }
+    if (t.includes('gracias')) {
+      return '¡De nada! 😊 Estoy acá 24/7 para lo que necesites. ¿Algo más sobre tu entrenamiento o tu cuenta?';
+    }
+    return `¡Gracias por escribir! Te leo en tiempo real. Soy tu asistente FuerzaFit y puedo ayudarte con cuotas, rutinas, clases, accesos o el uso de la app. Contame un poco más: "${q.slice(0,100)}" y te respondo al instante.`;
   };
 
   // Streaming real: escribe palabra por palabra en tiempo real

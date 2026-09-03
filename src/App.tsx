@@ -14,6 +14,7 @@ import { MemberLayout } from './components/member/MemberLayout';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { MemberLoginPage } from './pages/MemberLoginPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
+import { MaestroLoginPage } from './pages/MaestroLoginPage';
 import { SuperAdminLayout } from './components/superadmin/SuperAdminLayout';
 import { AiChatWidget } from './components/common/AiChatWidget';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -166,14 +167,7 @@ const AppShell: React.FC = () => {
       ) : /* 1. No autenticado → páginas separadas por rol */
       !currentUser ? (
         appMode === 'superadmin' ? (
-          <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-slate-100">
-            <div className="max-w-sm w-full bg-slate-900 border border-violet-500/30 rounded-3xl p-6 text-center space-y-3">
-              <p className="font-black text-white">Zona Maestra — Login SuperAdmin</p>
-              <p className="text-xs text-slate-400">Ingresá como superadmin para ver el dashboard.</p>
-              <button onClick={() => handleOpenAuth('admin')} className="w-full py-2.5 rounded-xl bg-violet-600 text-white text-xs font-black">Ingresar como Maestro</button>
-              <p className="text-[11px] text-slate-500">En demo: cambiá tu perfil a role=superadmin en Supabase o localStorage.</p>
-            </div>
-          </div>
+          <MaestroLoginPage />
         ) : appMode === 'admin' ? (
           <AdminLoginPage />
         ) : appMode === 'member' ? (

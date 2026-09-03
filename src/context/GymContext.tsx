@@ -175,6 +175,7 @@ interface GymContextType {
     discountARS?: number;
     discountReason?: string;
   }) => Promise<{ success: boolean; user: User; membership: Membership; payment: Payment; tempPassword: string; activationOtp: string; loginReady: boolean; loginHint?: string }>;
+  createStaff: (data: { name: string; email: string; phone?: string; role: UserRole; branchId?: string }) => Promise<{ success: boolean; user?: User; tempPassword?: string; loginReady?: boolean; message?: string }>;
   updateMember: (userId: string, data: Partial<User>) => void;
   deleteMember: (userId: string) => void;
   toggleMembershipSuspension: (userId: string) => void;
@@ -351,49 +352,71 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => loadFromStorage('current_user_id', null));
   const [selectedBranchId, setSelectedBranchId] = useState<string>(() => loadFromStorage('selected_branch_id', 'branch-1'));
 
-  // Listen to Supabase Auth State Change if configured
+  // Listen to Supabase Auth State Change if configured — FIX doble login
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         const authUser = session.user;
-        // BETA FIX: usar updater funcional para no depender de `users` y evitar
-        // resuscripciones en loop. Si el perfil no está en memoria, traerlo de Supabase.
-        let foundId: string | null = null;
+        // Setear ID inmediato para evitar segundo login, luego hidratar perfil
+        setCurrentUserId(authUser.id);
+        // Si ya está en memoria, no hacer fetch
+        let exists = false;
         setUsers(prev => {
-          const existing = prev.find(u => u.id === authUser.id || u.email.toLowerCase() === authUser.email?.toLowerCase());
-          foundId = existing?.id || null;
+          exists = !!prev.find(u => u.id === authUser.id);
           return prev;
         });
-        if (foundId) {
-          setCurrentUserId(foundId);
-        } else {
-          // Fetch or build profile
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
+        if (exists) return;
 
-          if (profile) {
-            const mappedUser: User = {
-              id: profile.id,
-              gymId: profile.gym_id,
-              name: profile.name,
-              email: profile.email,
-              phone: profile.phone || '',
-              dni: profile.dni,
-              role: profile.role || 'member',
-              avatarUrl: profile.avatar_url,
-              branchId: profile.branch_id || 'branch-1',
-              createdAt: profile.created_at || new Date().toISOString(),
-              isEmailVerified: true
-            };
-            setUsers(prev => [mappedUser, ...prev.filter(u => u.id !== mappedUser.id)]);
-            setCurrentUserId(mappedUser.id);
-          }
+        // Fetch profile en background
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+
+        if (profile) {
+          const mappedUser: User = {
+            id: profile.id,
+            gymId: profile.gym_id,
+            name: profile.name,
+            email: profile.email,
+            phone: profile.phone || '',
+            dni: profile.dni,
+            role: profile.role || 'member',
+            avatarUrl: profile.avatar_url,
+            branchId: profile.branch_id || 'branch-1',
+            createdAt: profile.created_at || new Date().toISOString(),
+            isEmailVerified: true
+          };
+          setUsers(prev => {
+            if (prev.find(u => u.id === mappedUser.id)) return prev;
+            return [mappedUser, ...prev];
+          });
+        } else {
+          // Fallback: crear perfil mínimo si no existe (evita null)
+          const fallback: User = {
+            id: authUser.id,
+            name: (authUser.user_metadata?.name as string) || authUser.email?.split('@')[0] || 'Usuario',
+            email: authUser.email || '',
+            phone: (authUser.user_metadata?.phone as string) || '',
+            role: (authUser.user_metadata?.role as UserRole) || 'member',
+            branchId: (authUser.user_metadata?.branch_id as string) || selectedBranchId,
+            createdAt: new Date().toISOString(),
+            isEmailVerified: true
+          };
+          setUsers(prev => [fallback, ...prev.filter(u => u.id !== fallback.id)]);
         }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUserId(null);
+      }
+    });
+
+    // Hidratar sesión inicial al montar (evita login doble en refresh)
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session?.user) {
+        setCurrentUserId(data.session.user.id);
       }
     });
 
@@ -2182,6 +2205,67 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
+  // Staff creation (recepción / entrenador) — sin membresía, acceso limitado
+  const createStaff = async (data: { name: string; email: string; phone?: string; role: UserRole; branchId?: string; }) => {
+    const cleanEmail = data.email.trim().toLowerCase();
+    if (users.some(u => u.email.toLowerCase() === cleanEmail)) {
+      return { success: false, message: 'Ya existe un usuario con ese email.' } as any;
+    }
+    const tempPassword = `staff${Math.floor(1000 + Math.random() * 9000)}`;
+    const branch = data.branchId || selectedBranchId;
+    let newId = `usr-${Date.now()}`;
+    let loginReady = false;
+    if (isSupabaseConfigured && supabase) {
+      const res: any = await (supabase.auth as any).signUp({
+        email: cleanEmail,
+        password: tempPassword,
+        options: { data: { name: data.name.trim(), role: data.role, phone: data.phone || '', branch_id: branch } }
+      });
+      // Supabase v2 signUp returns { data, error }
+      const authData = res?.data;
+      const signUpError = res?.error;
+      if (!signUpError && authData?.user?.id) {
+        newId = authData.user.id;
+        loginReady = true;
+      }
+    }
+    const newUser: User = {
+      id: newId,
+      gymId: currentGymId,
+      name: data.name.trim(),
+      email: cleanEmail,
+      phone: data.phone || '',
+      role: data.role,
+      branchId: branch,
+      createdAt: new Date().toISOString(),
+      isEmailVerified: true,
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80'
+    };
+    setUsers(prev => [newUser, ...prev]);
+    if (isSupabaseConfigured && supabase && loginReady) {
+      await supabase.from('profiles').upsert({
+        id: newId,
+        gym_id: currentGymId,
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        role: newUser.role,
+        branch_id: branch
+      } as any);
+    }
+    const notif: GymNotification = {
+      id: `notif-staff-${Date.now()}`,
+      userId: 'all',
+      title: `Nuevo empleado: ${newUser.name} (${data.role})`,
+      message: `Cuenta creada para ${data.role}. Ingreso por /admin con email ${cleanEmail}.`,
+      type: 'announcement',
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    setNotifications(prev => [notif, ...prev]);
+    return { success: true, user: newUser, tempPassword, loginReady };
+  };
+
   const updateMember = (userId: string, data: Partial<User>) => {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...data } : u));
   };
@@ -2608,6 +2692,7 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         validateDniAccess,
         simulateQuickCheckin,
         createMember,
+        createStaff,
         updateMember,
         deleteMember,
         toggleMembershipSuspension,

@@ -40,8 +40,9 @@ import { AdminPlansView } from './AdminPlansView';
 import { AdminRoutinesView } from './AdminRoutinesView';
 import { AdminClassesView } from './AdminClassesView';
 import { AdminReportsView } from './AdminReportsView';
+import { AdminStaffView } from './AdminStaffView';
 
-export type AdminTab = 'dashboard' | 'members' | 'access' | 'plans' | 'routines' | 'classes' | 'reports';
+export type AdminTab = 'dashboard' | 'members' | 'access' | 'plans' | 'routines' | 'classes' | 'reports' | 'staff';
 
 interface AdminLayoutProps {
   onOpenPaymentModal: () => void;
@@ -79,6 +80,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   if (!currentUser) return null;
+
+  const role = currentUser.role;
+  const isAdminRole = role === 'admin' || role === 'superadmin';
+  const isReceptionRole = role === 'reception';
+  const isTrainerRole = role === 'trainer';
+
+  // Redirigir a pestaña permitida si la actual no está habilitada para el rol
+  React.useEffect(() => {
+    if (isReceptionRole && !['dashboard','members','access'].includes(activeTab)) setActiveTab('members');
+    if (isTrainerRole && !['dashboard','routines','classes'].includes(activeTab)) setActiveTab('routines');
+  }, [role, activeTab]);
 
   const currentBranch = branches.find(b => b.id === selectedBranchId) || branches[0];
   const unreadNotifs = notifications.filter(n => !n.read);
@@ -192,42 +204,44 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         <nav className="flex-1 overflow-y-auto p-3 space-y-5">
           
           {/* Group 1: OPERACIONES */}
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 pb-1">
-              Operaciones en Vivo
-            </p>
+          {(isAdminRole || isReceptionRole) && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 pb-1">
+                Operaciones en Vivo
+              </p>
 
-            <button
-              id="admin-nav-dashboard"
-              onClick={() => handleNavigate('dashboard')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                activeTab === 'dashboard'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <LayoutDashboard className="w-4 h-4" />
-                <span>Dashboard General</span>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            </button>
+              <button
+                id="admin-nav-dashboard"
+                onClick={() => handleNavigate('dashboard')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                  activeTab === 'dashboard'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Dashboard General</span>
+                </div>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </button>
 
-            <button
-              id="admin-nav-access"
-              onClick={() => handleNavigate('access')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                activeTab === 'access'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <QrCode className="w-4 h-4" />
-                <span>Molinete & Pase QR</span>
-              </div>
-            </button>
-          </div>
+              <button
+                id="admin-nav-access"
+                onClick={() => handleNavigate('access')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                  activeTab === 'access'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <QrCode className="w-4 h-4" />
+                  <span>Molinete & Pase QR</span>
+                </div>
+              </button>
+            </div>
+          )}
 
           {/* Group 2: CLIENTES & DEPORTE */}
           <div className="space-y-1">
@@ -235,111 +249,143 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               Gestión de Gimnasio
             </p>
 
-            <button
-              id="admin-nav-members"
-              onClick={() => handleNavigate('members')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                activeTab === 'members'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Users className="w-4 h-4" />
-                <span>Padrón de Socios</span>
-              </div>
-              {expiringCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  {expiringCount} por vencer
-                </span>
-              )}
-            </button>
+            {(isAdminRole || isReceptionRole) && (
+              <button
+                id="admin-nav-members"
+                onClick={() => handleNavigate('members')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                  activeTab === 'members'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Users className="w-4 h-4" />
+                  <span>Padrón de Socios</span>
+                </div>
+                {expiringCount > 0 && (
+                  <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {expiringCount} por vencer
+                  </span>
+                )}
+              </button>
+            )}
 
-            <button
-              id="admin-nav-routines"
-              onClick={() => handleNavigate('routines')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                activeTab === 'routines'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Layers className="w-4 h-4" />
-                <span>Creador de Rutinas</span>
-              </div>
-            </button>
+            {(isAdminRole || isTrainerRole) && (
+              <>
+                <button
+                  id="admin-nav-routines"
+                  onClick={() => handleNavigate('routines')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                    activeTab === 'routines'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Layers className="w-4 h-4" />
+                    <span>Creador de Rutinas</span>
+                  </div>
+                </button>
 
-            <button
-              id="admin-nav-classes"
-              onClick={() => handleNavigate('classes')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                activeTab === 'classes'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <Calendar className="w-4 h-4" />
-                <span>Clases Grupales</span>
-              </div>
-            </button>
+                <button
+                  id="admin-nav-classes"
+                  onClick={() => handleNavigate('classes')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                    activeTab === 'classes'
+                      ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Calendar className="w-4 h-4" />
+                    <span>Clases Grupales</span>
+                  </div>
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Group 3: FINANZAS & REPORTES */}
-          <div className="space-y-1">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 pb-1">
-              Finanzas & Reportes
-            </p>
+          {/* Group 3: FINANZAS & REPORTES - solo admin */}
+          {isAdminRole && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 pb-1">
+                Finanzas & Reportes
+              </p>
 
-            <button
-              id="admin-nav-plans"
-              onClick={() => handleNavigate('plans')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                activeTab === 'plans'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <CreditCard className="w-4 h-4" />
-                <span>Planes & Cuotas</span>
-              </div>
-            </button>
+              <button
+                id="admin-nav-plans"
+                onClick={() => handleNavigate('plans')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                  activeTab === 'plans'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <CreditCard className="w-4 h-4" />
+                  <span>Planes & Cuotas</span>
+                </div>
+              </button>
 
-            <button
-              id="admin-nav-reports"
-              onClick={() => handleNavigate('reports')}
-              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                activeTab === 'reports'
-                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                <BarChart3 className="w-4 h-4" />
-                <span>Métricas & Reportes</span>
-              </div>
-            </button>
+              <button
+                id="admin-nav-reports"
+                onClick={() => handleNavigate('reports')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                  activeTab === 'reports'
+                    ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Métricas & Reportes</span>
+                </div>
+              </button>
 
-            <button
-              id="admin-nav-manual-payments"
-              onClick={() => setIsManualPaymentModalOpen(true)}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 transition-all shadow-sm group"
-            >
-              <div className="flex items-center gap-2.5">
-                <Receipt className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
-                <span>Caja & Pagos Manuales</span>
-              </div>
-              {pendingPaymentsCount > 0 ? (
-                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-slate-950 animate-pulse">
-                  {pendingPaymentsCount}
-                </span>
-              ) : (
-                <span className="text-[10px] text-amber-400/80 font-mono">Nuevo</span>
-              )}
-            </button>
-          </div>
+              <button
+                id="admin-nav-manual-payments"
+                onClick={() => setIsManualPaymentModalOpen(true)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 transition-all shadow-sm group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Receipt className="w-4 h-4 text-amber-400 group-hover:rotate-12 transition-transform" />
+                  <span>Caja & Pagos Manuales</span>
+                </div>
+                {pendingPaymentsCount > 0 ? (
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-500 text-slate-950 animate-pulse">
+                    {pendingPaymentsCount}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-amber-400/80 font-mono">Nuevo</span>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Group 4: EQUIPO - solo admin */}
+          {isAdminRole && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 pb-1">
+                Equipo
+              </p>
+              <button
+                id="admin-nav-staff"
+                onClick={() => handleNavigate('staff')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                  activeTab === 'staff'
+                    ? 'bg-violet-500/15 text-violet-400 border border-violet-500/30'
+                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Users className="w-4 h-4" />
+                  <span>Equipo / Staff</span>
+                </div>
+                <span className="text-[10px] bg-violet-500/15 text-violet-300 px-1.5 py-0.5 rounded">Nuevo</span>
+              </button>
+            </div>
+          )}
 
         </nav>
 
@@ -596,10 +642,11 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
               )}
               {activeTab === 'members' && <AdminMembersView />}
               {activeTab === 'access' && <AdminAccessControlView />}
-              {activeTab === 'plans' && <AdminPlansView />}
+              {activeTab === 'plans' && (isAdminRole ? <AdminPlansView /> : <div className="p-8 text-center text-slate-500 text-xs">Acceso solo para admin</div>)}
               {activeTab === 'routines' && <AdminRoutinesView />}
               {activeTab === 'classes' && <AdminClassesView />}
-              {activeTab === 'reports' && <AdminReportsView />}
+              {activeTab === 'reports' && (isAdminRole ? <AdminReportsView /> : <div className="p-8 text-center text-slate-500 text-xs">Acceso solo para admin</div>)}
+              {activeTab === 'staff' && (isAdminRole ? <AdminStaffView /> : <div className="p-8 text-center text-slate-500 text-xs">Acceso solo para admin</div>)}
             </motion.div>
           </AnimatePresence>
         </main>
@@ -704,6 +751,16 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>Reportes</span>
+                </button>
+
+                <button
+                  onClick={() => handleNavigate('staff')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${
+                    activeTab === 'staff' ? 'bg-violet-500 text-white' : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Equipo</span>
                 </button>
               </div>
             </div>
