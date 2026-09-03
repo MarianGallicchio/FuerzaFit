@@ -19,6 +19,74 @@ async function startServer() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Chat IA gratuito para consultas (socios/admin/maestro) — sin tarjeta
+  app.post('/api/ai/chat', async (req, res) => {
+    const { message } = req.body || {};
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ reply: 'Escribí tu consulta.' });
+    }
+    const q = message.trim().slice(0, 1000);
+
+    // 1) Intenta Gemini si hay key (free tier generoso)
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: geminiKey, httpOptions: { headers: { 'User-Agent': 'aistudio-build' } } });
+        const r = await ai.models.generateContent({
+          model: 'gemini-1.5-flash',
+          contents: `Sos el asistente de FuerzaFit (gimnasio LATAM). Respondé en español rioplatense, conciso y útil (máx 120 palabras). Consulta: "${q}"`,
+          config: { temperature: 0.7 }
+        });
+        const text = r.text?.trim();
+        if (text) return res.json({ reply: text, provider: 'gemini' });
+      } catch (e) { console.warn('Gemini chat failed, fallback', e); }
+    }
+
+    // 2) Intenta Groq free tier si hay key (opcional)
+    const groqKey = process.env.GROQ_API_KEY;
+    if (groqKey) {
+      try {
+        const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${groqKey}` },
+          body: JSON.stringify({
+            model: 'llama-3.1-8b-instant',
+            messages: [
+              { role: 'system', content: 'Sos asistente de FuerzaFit, respondé en español rioplatense, conciso (120 palabras).' },
+              { role: 'user', content: q }
+            ],
+            temperature: 0.7, max_tokens: 400
+          })
+        });
+        const j: any = await groqRes.json();
+        const text = j.choices?.[0]?.message?.content?.trim();
+        if (text) return res.json({ reply: text, provider: 'groq' });
+      } catch (e) { console.warn('Groq failed', e); }
+    }
+
+    // 3) Intenta Hugging Face free si hay key (opcional)
+    const hfKey = process.env.HF_API_KEY;
+    if (hfKey) {
+      try {
+        const hfRes = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${hfKey}` },
+          body: JSON.stringify({ inputs: `Instrucción: Responde en español rioplatense conciso. Consulta: ${q}`, parameters: { max_new_tokens: 250 } })
+        });
+        const j: any = await hfRes.json();
+        const text = (Array.isArray(j) ? j[0]?.generated_text : j.generated_text || j.error) as string;
+        if (text && !text.toLowerCase().includes('error')) {
+          const clean = text.split('Consulta:').pop()?.trim().slice(0, 600) || text.slice(0, 600);
+          return res.json({ reply: clean, provider: 'huggingface' });
+        }
+      } catch (e) { console.warn('HF failed', e); }
+    }
+
+    // 4) Fallback 100% gratuito sin keys — mock inteligente local
+    const reply = getMockChatReply(q);
+    return res.json({ reply, provider: 'mock', free: true });
+  });
+
   // Gemini API Endpoint for Instructor Auto-Response & Advice
   app.post('/api/gemini/instructor-suggest', async (req, res) => {
     try {
@@ -171,6 +239,16 @@ Instrucciones:
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
+}
+
+function getMockChatReply(q: string): string {
+  const t = q.toLowerCase();
+  if (t.includes('pago') || t.includes('cuota') || t.includes('mercado')) return 'Para pagos: en /admin → Caja podés ver/cargar cuotas, y en tu perfil está el historial. Si ves mora, regularizá en recepción. ¿Querés que te arme un plan de pagos?';
+  if (t.includes('rutina') || t.includes('ejercicio') || t.includes('peso')) return 'Para rutina: decime tu objetivo (hipertrofia/fuerza) y días por semana y te armo una base. Descansá 60-90s entre series y priorizá técnica.';
+  if (t.includes('dolor') || t.includes('lesion')) return 'Si hay dolor articular, frená la serie, bajá carga 50% y avisá al profe en sala. No sigas con dolor punzante.';
+  if (t.includes('horario') || t.includes('clase')) return 'Clases: en tu app → Clases ves grilla y cupos. Reservá con 2h de anticipación. ¿Qué disciplina te interesa?';
+  if (t.includes('admin') || t.includes('dueño') || t.includes('gimnasio')) return 'Para dueños: en /admin gestionás socios, caja y molinete por DNI. ¿Necesitás ayuda con altas, precios o reportes?';
+  return `¡Gracias por tu consulta! Soy tu asistente FuerzaFit (modo gratuito). Preguntame sobre rutinas, pagos, clases o el uso de la app y te respondo al instante. Tu consulta fue: "${q.slice(0,120)}"`;
 }
 
 function getSmartContextualFallback(params: {

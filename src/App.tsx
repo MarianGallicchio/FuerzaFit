@@ -15,6 +15,7 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { MemberLoginPage } from './pages/MemberLoginPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { SuperAdminLayout } from './components/superadmin/SuperAdminLayout';
+import { AiChatWidget } from './components/common/AiChatWidget';
 
 const AppShell: React.FC = () => {
   const { currentUser, logout, getMembershipForUser, getPlanById } = useGym();
@@ -196,6 +197,9 @@ const AppShell: React.FC = () => {
         initialPlanId={selectedPlanForReg}
         lockedRole={lockedRole}
       />
+
+      {/* Chat IA gratuito — solo logueado */}
+      {currentUser && <AiChatWidget />}
     </>
   );
 };
