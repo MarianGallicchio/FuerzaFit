@@ -15,6 +15,18 @@ export const AiChatWidget: React.FC = () => {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, loading]);
 
+  const getLocalReply = (q: string): string => {
+    const t = q.toLowerCase();
+    if (t.includes('cuota') || t.includes('precio') || t.includes('vale') || t.includes('pago') || t.includes('cuanto')) {
+      return '💰 **Cuotas:** El precio depende del plan de tu gimnasio. En tu app no mostramos precios al socio (privado). Consultá en recepción o en /admin → Planes. ¿Querés que te diga tu plan actual y vencimiento? Decime tu DNI.';
+    }
+    if (t.includes('rutina') || t.includes('ejercicio') || t.includes('peso')) return '🏋️ Para rutina: decime tu objetivo (hipertrofia/fuerza) y días por semana y te armo una base. Descansá 60-90s entre series y priorizá técnica.';
+    if (t.includes('dolor') || t.includes('lesion')) return '🩺 Si hay dolor articular, frená la serie, bajá carga 50% y avisá al profe en sala. No sigas con dolor punzante.';
+    if (t.includes('horario') || t.includes('clase')) return '📅 Clases: en tu app → Clases ves grilla y cupos. Reservá con 2h de anticipación.';
+    if (t.includes('admin') || t.includes('dueño')) return '🏢 Para dueños: en /admin gestionás socios, caja y molinete por DNI. ¿Necesitás ayuda con altas o reportes?';
+    return `¡Gracias por tu consulta! Soy tu asistente FuerzaFit (modo offline gratuito en GitHub Pages). Preguntame sobre rutinas, pagos, clases o el uso de la app. Tu consulta fue: "${q.slice(0,120)}"\n\n💡 En el servidor real (Railway/Render) respondo con IA (Gemini/Groq). Acá te respondo en mock local.`;
+  };
+
   const send = async () => {
     const q = input.trim();
     if (!q || loading) return;
@@ -27,10 +39,18 @@ export const AiChatWidget: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: q })
       });
+      if (!res.ok) throw new Error('no api');
       const data = await res.json();
-      setMsgs(m => [...m, { role: 'assistant', text: data.reply || data.suggestion || 'No pude responder, probá de nuevo.' }]);
+      const reply = data.reply || data.suggestion;
+      if (reply) {
+        setMsgs(m => [...m, { role: 'assistant', text: reply }]);
+      } else {
+        throw new Error('empty');
+      }
     } catch {
-      setMsgs(m => [...m, { role: 'assistant', text: '⚠️ Sin conexión al asistente. Probá de nuevo en unos segundos.' }]);
+      // GitHub Pages es estático (sin /api) → fallback local 100% gratuito
+      const reply = getLocalReply(q);
+      setMsgs(m => [...m, { role: 'assistant', text: reply }]);
     } finally {
       setLoading(false);
     }
