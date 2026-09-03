@@ -1,21 +1,18 @@
-// FuerzaFit Beta — Separación Admin / Socios por link.
-// Mismo código, dos accesos que no mezclan datos ni roles:
-//
-//  - Panel dueño/staff:  https://tu-dominio.com/?app=admin   (o /?app=admin)
-//  - App socios:         https://tu-dominio.com/?app=socio   (o /?app=socio)
-//  - Modo completo (dev): sin parámetro o ?app=full
-//
-// También se puede fijar por build con VITE_APP_MODE=admin|socio|full.
-// El modo solo controla QUÉ roles pueden iniciar sesión en esa URL.
-// El aislamiento real de datos lo hace Supabase RLS por gym_id.
+// FuerzaFit Beta — Separación Admin / Socios / Maestro por link.
+// Mismo código, 3 accesos:
+//  - Maestro:    /superadmin
+//  - Dueño/Staff: /admin
+//  - Socio:      /socio
+// También ?app= y VITE_APP_MODE. RLS real por gym_id.
 
-export type AppMode = 'full' | 'admin' | 'member';
+export type AppMode = 'full' | 'admin' | 'member' | 'superadmin';
 
-const VALID_MODES: AppMode[] = ['full', 'admin', 'member'];
+const VALID_MODES: AppMode[] = ['full', 'admin', 'member', 'superadmin'];
 
 function normalizeMode(raw: string | null | undefined): AppMode | null {
   if (!raw) return null;
   const v = raw.trim().toLowerCase();
+  if (v === 'superadmin' || v === 'maestro' || v === 'super_admin' || v === 'master') return 'superadmin';
   if (v === 'admin' || v === 'owner' || v === 'staff' || v === 'dueno' || v === 'dueño') return 'admin';
   if (v === 'socio' || v === 'socios' || v === 'member' || v === 'members' || v === 'atleta') return 'member';
   if (v === 'full' || v === 'all' || v === 'completo') return 'full';
@@ -23,11 +20,10 @@ function normalizeMode(raw: string | null | undefined): AppMode | null {
 }
 
 export function getAppMode(): AppMode {
-  // 1. Path dedicado tiene máxima prioridad: /admin y /socio son páginas distintas
-  // Soporta tanto local (/admin) como GitHub Pages (/FuerzaFit/admin) y subrutas (/admin/login)
+  // 1. Path dedicado: /superadmin > /admin > /socio
   try {
     const path = window.location.pathname.toLowerCase();
-    // busca segmento /admin o /socio en cualquier posición (para base /FuerzaFit/)
+    if (/(^|\/)(superadmin|super_admin|maestro|master)(\/|$|\?|#)/.test(path)) return 'superadmin';
     if (/(^|\/)(admin|panel|dueno|dueño|staff)(\/|$|\?|#)/.test(path)) return 'admin';
     if (/(^|\/)(socio|socios|member|members|atleta|login|ingreso)(\/|$|\?|#)/.test(path)) return 'member';
   } catch {}
@@ -73,6 +69,16 @@ export interface AppModeConfig {
 }
 
 export function getAppModeConfig(mode: AppMode): AppModeConfig {
+  if (mode === 'superadmin') {
+    return {
+      mode,
+      badge: 'Zona Maestra · SuperAdmin',
+      title: 'Maestro FuerzaFit',
+      subtitle: 'Control total de tenants, facturación y soporte.',
+      allowedRoles: ['superadmin'],
+      loginHint: 'Solo cuentas SuperAdmin. Acceso con token maestro.'
+    };
+  }
   if (mode === 'admin') {
     return {
       mode,
@@ -105,6 +111,7 @@ export function getAppModeConfig(mode: AppMode): AppModeConfig {
 
 export function isRoleAllowedInMode(role: string | undefined, mode: AppMode): boolean {
   if (mode === 'full') return true;
+  if (mode === 'superadmin') return role === 'superadmin';
   const cfg = getAppModeConfig(mode);
   return !!role && cfg.allowedRoles.includes(role);
 }
@@ -117,8 +124,7 @@ function getBasePrefix(): string {
   return '';
 }
 
-export function buildModeUrl(mode: Exclude<AppMode, 'full'>): string {
-  // Usa rutas limpias /admin y /socio respetando base /FuerzaFit/ en Pages
+export function buildModeUrl(mode: Exclude<AppMode, 'full' | 'superadmin'>): string {
   try {
     const url = new URL(window.location.href);
     url.searchParams.delete('app');
@@ -132,8 +138,7 @@ export function buildModeUrl(mode: Exclude<AppMode, 'full'>): string {
   }
 }
 
-// Helper para navegación SPA sin reload (pushState)
-export function navigateToMode(mode: Exclude<AppMode, 'full'>): void {
+export function navigateToMode(mode: Exclude<AppMode, 'full' | 'superadmin'>): void {
   try {
     const base = getBasePrefix();
     const target = `${base}${mode === 'admin' ? '/admin' : '/socio'}`;
@@ -142,18 +147,16 @@ export function navigateToMode(mode: Exclude<AppMode, 'full'>): void {
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
   } catch {
-    window.location.href = buildModeUrl(mode);
+    window.location.href = buildModeUrl(mode as any);
   }
 }
 
 export function navigateToPath(path: string): void {
   try {
     const base = getBasePrefix();
-    // si path es / o /admin /socio y estamos en Pages, prefijar base
     let target = path;
     if (base && path.startsWith('/') && !path.toLowerCase().startsWith(base.toLowerCase())) {
-      // solo prefijar para rutas internas conocidas
-      if (['/admin','/socio','/','/login','/ingreso'].some(r => path === r || path.startsWith(r + '/') || path.startsWith(r + '?'))) {
+      if (['/admin','/socio','/superadmin','/','/login','/ingreso'].some(r => path === r || path.startsWith(r + '/') || path.startsWith(r + '?'))) {
         target = `${base}${path}`;
       }
     }

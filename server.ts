@@ -130,6 +130,29 @@ Instrucciones:
     }
   });
 
+  // === ZONA MAESTRA — Endpoints SuperAdmin (mock + Supabase service_role) ===
+  // En prod validar JWT superadmin y auditar. Aquí mock con logs.
+  app.get('/api/superadmin/tenants', (req, res) => {
+    res.json({ tenants: [], note: 'Mock: en prod query Supabase gyms + tenant_subscriptions' });
+  });
+  app.post('/api/superadmin/tenants/:id/impersonate', (req, res) => {
+    const { id } = req.params;
+    const token = `imp_${id}_${Date.now()}`;
+    console.log(`[superadmin] impersonate gym ${id} -> ${token}`);
+    res.json({ token, expiresIn: 300, url: `/admin?impersonate=${token}` });
+  });
+  app.patch('/api/superadmin/tenants/:id/status', (req, res) => {
+    console.log(`[superadmin] status change ${req.params.id}`, req.body);
+    res.json({ ok: true, audit: 'audit_logs inserted' });
+  });
+  app.get('/api/superadmin/invoices', (req, res) => res.json({ invoices: [] }));
+  app.post('/api/superadmin/invoices/:id/mark-paid', (req, res) => res.json({ ok: true }));
+  app.post('/api/superadmin/announcements', (req, res) => {
+    console.log('[superadmin] broadcast', req.body);
+    res.json({ ok: true, sent: 'in_app + email' });
+  });
+  app.get('/api/superadmin/metrics/overview', (req, res) => res.json({ activeTenants: 4, totalMembers: 338 }));
+
   // Vite middleware setup
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
