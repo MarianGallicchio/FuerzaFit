@@ -2,7 +2,6 @@ import React from 'react';
 import { useGym } from '../../context/GymContext';
 import {
   QrCode,
-  CreditCard,
   Dumbbell,
   Calendar,
   TrendingUp,
@@ -20,20 +19,19 @@ import {
   ShieldCheck,
   Zap,
   Activity,
-  ArrowRight
+  User
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { WeeklyCaloriesBarChart } from './WeeklyCaloriesBarChart';
 
 interface MemberDashboardProps {
   onOpenQr: () => void;
-  onOpenPayment: () => void;
+  onOpenPayment?: () => void;
   onNavigateTab: (tab: 'dashboard' | 'routine' | 'classes' | 'progress' | 'profile') => void;
 }
 
 export const MemberDashboard: React.FC<MemberDashboardProps> = ({
   onOpenQr,
-  onOpenPayment,
   onNavigateTab
 }) => {
   const {
@@ -220,7 +218,7 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 </div>
                 <div>
                   <h3 className="font-extrabold text-base text-white">{plan?.name || 'Membresía FuerzaFit'}</h3>
-                  <p className="text-xs text-slate-400 font-mono">${plan?.priceARS.toLocaleString('es-AR')} ARS / mes</p>
+                  <p className="text-xs text-slate-400">Tu plan de entrenamiento asignado</p>
                 </div>
               </div>
 
@@ -238,33 +236,23 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
                 ? 'Membresía en pausa temporal. Contactá a recepción para reactivarla.'
                 : isExpired
                 ? isInGrace
-                  ? `Venció el ${expiryDate?.toLocaleDateString('es-AR')}. Tenés ${graceDays} días de tolerancia para abonar sin perder acceso.`
-                  : `Venció el ${expiryDate?.toLocaleDateString('es-AR')}. Regularizá tu cuota para habilitar el molinete QR.`
-                : `Vigente hasta el ${expiryDate?.toLocaleDateString('es-AR')}. Renovación automática vía Mercado Pago disponible.`}
+                  ? `Venció el ${expiryDate?.toLocaleDateString('es-AR')}. Tenés ${graceDays} días de tolerancia. Consultá en recepción.`
+                  : `Venció el ${expiryDate?.toLocaleDateString('es-AR')}. Acercate a recepción para habilitar el acceso.`
+                : `Vigente hasta el ${expiryDate?.toLocaleDateString('es-AR')}. Consultá vigencia y rutina en recepción si necesitás.`}
             </p>
           </div>
 
-          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-slate-800">
+          <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-800">
             <button
               onClick={() => onNavigateTab('profile')}
               className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors text-left"
-              title="Ir a mi historial de pagos y comprobantes"
             >
-              <CreditCard className="w-4 h-4 text-emerald-400" />
-              <span>Historial de pagos & comprobantes PDF</span>
+              <User className="w-4 h-4 text-emerald-400" />
+              <span>Ver mi perfil</span>
             </button>
-
-            <button
-              onClick={onOpenPayment}
-              className={`py-2.5 px-4 rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all active:scale-95 ${
-                isExpired || daysLeft <= 5
-                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20'
-                  : 'bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700'
-              }`}
-            >
-              <span>{isExpired ? 'Pagar con Mercado Pago' : 'Renovar Cuota'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            <span className="text-[11px] text-slate-500">
+              {isExpired ? 'Estado: a regularizar' : `Quedan ${daysLeft} días`}
+            </span>
           </div>
         </div>
 

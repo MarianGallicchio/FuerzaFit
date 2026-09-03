@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGym } from '../context/GymContext';
 import { PaymentMethod } from '../types';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { navigateToMode, navigateToPath } from '../lib/appMode';
+import { navigateToPath } from '../lib/appMode';
 import {
   Dumbbell,
   Mail,
@@ -17,7 +17,6 @@ import {
   KeyRound,
   UserPlus,
   Hash,
-  ShieldCheck,
   User,
   ChevronLeft,
   IdCard
@@ -183,7 +182,6 @@ export const MemberLoginPage: React.FC<MemberLoginPageProps> = ({ initialPlanId 
           </button>
           <div className="flex items-center gap-2">
             <button onClick={() => navigateToPath('/')} className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1"><ChevronLeft className="w-4 h-4" /> Inicio</button>
-            <button onClick={() => navigateToMode('admin')} className="hidden sm:flex px-3 py-1.5 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Soy dueño / staff</button>
           </div>
         </div>
       </header>
@@ -282,11 +280,8 @@ export const MemberLoginPage: React.FC<MemberLoginPageProps> = ({ initialPlanId 
                   <div><input type="text" placeholder="GYM-CENTRAL-2026" value={gymCodeInput} onChange={e=>handleGymCodeChange(e.target.value)} className={`w-full p-2.5 rounded-xl bg-slate-800 border font-mono uppercase tracking-wider text-white ${codeValidationStatus==='valid'?'border-emerald-500':codeValidationStatus==='invalid'?'border-rose-500':'border-slate-700'}`}/>{codeValidationStatus==='valid'&&validatedBranch&&<p className="text-[10px] text-emerald-400 font-bold mt-1">✓ {validatedBranch.name} ({validatedBranch.address})</p>}</div>
                 )}
               </div>
-              <div><label className="block text-slate-300 font-bold mb-1">Plan</label><select value={regPlanId} onChange={e=>setRegPlanId(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none">{plans.map(p=><option key={p.id} value={p.id}>{p.name} - ${p.priceARS.toLocaleString('es-AR')} ARS</option>)}</select></div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div><label className="block text-slate-300 font-bold mb-1">Pago</label><select value={regPaymentMethod} onChange={e=>setRegPaymentMethod(e.target.value as PaymentMethod)} className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white"><option value="mercadopago">Mercado Pago</option><option value="cash">Efectivo</option><option value="transfer">Transferencia</option></select></div>
-                <div><label className="block text-slate-300 font-bold mb-1">Contraseña (opcional)</label><input type="password" placeholder="Creá clave" value={regPassword} onChange={e=>setRegPassword(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none"/></div>
-              </div>
+              <div><label className="block text-slate-300 font-bold mb-1">Plan de entrenamiento</label><select value={regPlanId} onChange={e=>setRegPlanId(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none">{plans.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><p className="text-[11px] text-slate-500 mt-1">El plan se confirma en recepción. Sin precios aquí.</p></div>
+              <div><label className="block text-slate-300 font-bold mb-1">Contraseña (opcional)</label><input type="password" placeholder="Creá clave" value={regPassword} onChange={e=>setRegPassword(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none"/></div>
               <button type="submit" disabled={isLoading} className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold shadow-lg disabled:opacity-50 flex items-center justify-center gap-2">{isLoading?<><RefreshCw className="w-4 h-4 animate-spin"/>Procesando…</>:<><Sparkles className="w-4 h-4"/>Crear cuenta y recibir código</>}</button>
             </form>
           )}
@@ -304,7 +299,7 @@ export const MemberLoginPage: React.FC<MemberLoginPageProps> = ({ initialPlanId 
       </div>
 
       <div className="p-4 text-center text-[11px] text-slate-500">
-        <span>¿Sos dueño o staff? Entrá por </span><button onClick={()=>navigateToMode('admin')} className="text-amber-300 font-bold hover:underline">/admin</button><span> · Ingreso diario al gym siempre con DNI.</span>
+        <span>Ingreso diario al gym siempre con DNI en recepción.</span>
       </div>
     </div>
   );

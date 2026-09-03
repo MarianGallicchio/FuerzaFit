@@ -1,26 +1,20 @@
 import React, { useState } from 'react';
 import { useGym } from '../../context/GymContext';
 import {
-  User,
-  Shield,
-  CreditCard,
   FileCheck,
   Phone,
   Mail,
   HeartPulse,
   Save,
-  CheckCircle2,
-  ExternalLink,
-  AlertCircle
+  CheckCircle2
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { MemberPaymentsHistory } from './MemberPaymentsHistory';
 
 interface MemberProfileViewProps {
-  onOpenPayment: () => void;
+  onOpenPayment?: () => void;
 }
 
-export const MemberProfileView: React.FC<MemberProfileViewProps> = ({ onOpenPayment }) => {
+export const MemberProfileView: React.FC<MemberProfileViewProps> = () => {
   const { currentUser, updateMember, getMembershipForUser, getPlanById } = useGym();
 
   const [name, setName] = useState(currentUser?.name || '');
@@ -187,8 +181,7 @@ export const MemberProfileView: React.FC<MemberProfileViewProps> = ({ onOpenPaym
         </div>
       </form>
 
-      {/* Payment History & Receipts */}
-      <MemberPaymentsHistory onOpenPaymentModal={onOpenPayment} />
+      {/* Nota: historial y comprobantes de pago se gestionan en recepción/administración */}
 
     </div>
   );

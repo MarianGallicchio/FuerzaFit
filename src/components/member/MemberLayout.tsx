@@ -11,7 +11,6 @@ import {
   Building2,
   Bell,
   Sparkles,
-  CreditCard,
   LogOut,
   ShieldCheck,
   ChevronDown,
@@ -33,7 +32,7 @@ export type MemberTab = 'dashboard' | 'routine' | 'classes' | 'progress' | 'prof
 
 interface MemberLayoutProps {
   onOpenQrModal: () => void;
-  onOpenPaymentModal: () => void;
+  onOpenPaymentModal?: () => void;
   onOpenAuthModal: (mode?: 'login' | 'register' | 'profiles') => void;
   onViewLanding?: () => void;
 }
@@ -201,20 +200,8 @@ export const MemberLayout: React.FC<MemberLayoutProps> = ({
                     </div>
                   </div>
 
-                  {/* Account options */}
+                  {/* Account options - sin comercio */}
                   <div className="pt-2 border-t border-slate-800 flex flex-col gap-1">
-                    <button
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        setActiveTab('payments');
-                      }}
-                      className="w-full text-left px-2.5 py-2 rounded-xl text-xs text-slate-300 hover:text-white hover:bg-slate-800 flex items-center justify-between transition-colors"
-                    >
-                      <span className="flex items-center gap-2">
-                        <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Mis Pagos y Comprobantes</span>
-                      </span>
-                    </button>
                     {onViewLanding && (
                       <button
                         onClick={() => {
@@ -319,7 +306,7 @@ export const MemberLayout: React.FC<MemberLayoutProps> = ({
             }`}
           >
             <User className="w-4 h-4" />
-            <span>Perfil & Pagos</span>
+            <span>Perfil</span>
           </button>
         </div>
 
@@ -340,16 +327,13 @@ export const MemberLayout: React.FC<MemberLayoutProps> = ({
             {activeTab === 'dashboard' && (
               <MemberDashboard
                 onOpenQr={onOpenQrModal}
-                onOpenPayment={onOpenPaymentModal}
                 onNavigateTab={tab => setActiveTab(tab)}
               />
             )}
             {activeTab === 'routine' && <MemberRoutineView />}
             {activeTab === 'classes' && <MemberClassesView />}
             {activeTab === 'progress' && <MemberProgressView />}
-            {activeTab === 'profile' && (
-              <MemberProfileView onOpenPayment={onOpenPaymentModal} />
-            )}
+            {activeTab === 'profile' && <MemberProfileView />}
           </motion.div>
         </AnimatePresence>
       </main>
