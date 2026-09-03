@@ -18,6 +18,13 @@ create policy "Dueños actualizan su gimnasio"
   using (owner_user_id = auth.uid())
   with check (owner_user_id = auth.uid());
 
+-- El dueño puede LEER su gimnasio (sin esto el insert+select del alta falla:
+-- el perfil aún apunta al gym anterior y el SELECT de retorno es denegado)
+drop policy if exists "Dueños ven su propio gimnasio" on public.gyms;
+create policy "Dueños ven su propio gimnasio"
+  on public.gyms for select to authenticated
+  using (owner_user_id = auth.uid());
+
 -- 2. El dueño puede crear la sede inicial y planes iniciales de su gimnasio
 drop policy if exists "Dueños crean sedes de su gimnasio" on public.branches;
 create policy "Dueños crean sedes de su gimnasio"
