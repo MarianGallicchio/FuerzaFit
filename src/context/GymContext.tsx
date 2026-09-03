@@ -104,6 +104,8 @@ interface GymContextType {
   requestPhoneOtp: (phone: string) => Promise<{ success: boolean; message: string; phoneE164?: string }>;
   verifyPhoneOtp: (phoneE164: string, otp: string) => Promise<{ success: boolean; message: string; user?: User }>;
   loginWithPassword: (email: string, password: string) => Promise<{ success: boolean; message: string; user?: User }>;
+  requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
+  updatePassword: (newPassword: string) => Promise<{ success: boolean; message: string }>;
   registerMemberSelf: (data: {
     name: string;
     email: string;
@@ -946,6 +948,47 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         success: false,
         message: err.message || 'Error en inicio de sesión.'
       };
+    }
+  };
+
+  // 3b. Olvidé mi contraseña / Recuperar cuenta
+  const requestPasswordReset = async (email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail.includes('@')) return { success: false, message: 'Ingresá un email válido.' };
+    setIsAuthLoading(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        setIsAuthLoading(false);
+        if (error) return { success: false, message: error.message };
+        return { success: true, message: `Te enviamos un link para restablecer tu contraseña a ${cleanEmail}. Revisá tu correo.` };
+      }
+      // Fallback demo local
+      setIsAuthLoading(false);
+      return { success: true, message: `Simulación: se enviaría email a ${cleanEmail}. En demo usá OTP 123456.` };
+    } catch (e: any) {
+      setIsAuthLoading(false);
+      return { success: false, message: e.message || 'Error al enviar email.' };
+    }
+  };
+
+  const updatePassword = async (newPassword: string) => {
+    if (!newPassword || newPassword.length < 6) return { success: false, message: 'La contraseña debe tener al menos 6 caracteres.' };
+    setIsAuthLoading(true);
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        setIsAuthLoading(false);
+        if (error) return { success: false, message: error.message };
+        return { success: true, message: 'Contraseña actualizada. Ya podés ingresar.' };
+      }
+      setIsAuthLoading(false);
+      return { success: false, message: 'No hay Supabase configurado.' };
+    } catch (e: any) {
+      setIsAuthLoading(false);
+      return { success: false, message: e.message || 'Error al actualizar.' };
     }
   };
 
@@ -2546,6 +2589,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         requestPhoneOtp,
         verifyPhoneOtp,
         loginWithPassword,
+        requestPasswordReset,
+        updatePassword,
         registerMemberSelf,
         confirmRegistration,
         logout,
