@@ -413,6 +413,17 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const currentUser = currentUserId ? (users.find(u => u.id === currentUserId) || null) : null;
   const currentRole = currentUser?.role || 'member';
 
+  // BETA FIX CRÍTICO: la sesión manda. Al loguearse, operar siempre sobre el gym
+  // del usuario. Sin esto la app cargaba el gym seed vacío: sin planes/sedes el
+  // "Cobrar cuota" reventaba y el alta de socios quedaba colgada.
+  useEffect(() => {
+    const userGym = currentUser?.gymId;
+    if (userGym && userGym !== currentGymId) {
+      switchGym(userGym).catch(err => console.error('Error switching to user gym:', err));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser?.gymId]);
+
   const switchUser = (userId: string) => {
     const target = users.find(u => u.id === userId);
     if (target) {
@@ -517,8 +528,32 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         if (!error && data.user) {
           const authUser = data.user;
-          // Find or create profile
+          // BETA FIX: buscar perfil real primero (antes inventaba un socio nuevo
+          // con plan starter aunque la cuenta ya existiera).
           let userObj = users.find(u => u.id === authUser.id || u.email.toLowerCase() === cleanEmail);
+          if (!userObj) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authUser.id)
+              .single();
+            if (profile) {
+              userObj = {
+                id: profile.id,
+                gymId: profile.gym_id,
+                name: profile.name,
+                email: profile.email,
+                phone: profile.phone || '',
+                dni: profile.dni,
+                role: profile.role || 'member',
+                avatarUrl: profile.avatar_url,
+                branchId: profile.branch_id || selectedBranchId,
+                createdAt: profile.created_at || new Date().toISOString(),
+                isEmailVerified: true
+              };
+              setUsers(prev => [userObj!, ...prev.filter(u => u.id !== userObj!.id)]);
+            }
+          }
           if (!userObj) {
             userObj = {
               id: authUser.id,
@@ -813,6 +848,31 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!error && data.user) {
           const authUser = data.user;
           let userObj = users.find(u => u.id === authUser.id || u.email.toLowerCase() === cleanEmail);
+          // BETA FIX: si el usuario existe en Auth pero aún no está en memoria,
+          // traer su perfil real de Supabase (antes se lo rechazaba).
+          if (!userObj) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authUser.id)
+              .single();
+            if (profile) {
+              userObj = {
+                id: profile.id,
+                gymId: profile.gym_id,
+                name: profile.name,
+                email: profile.email,
+                phone: profile.phone || '',
+                dni: profile.dni,
+                role: profile.role || 'member',
+                avatarUrl: profile.avatar_url,
+                branchId: profile.branch_id || selectedBranchId,
+                createdAt: profile.created_at || new Date().toISOString(),
+                isEmailVerified: true
+              };
+              setUsers(prev => [userObj!, ...prev.filter(u => u.id !== userObj!.id)]);
+            }
+          }
           if (userObj) {
             setCurrentUserId(userObj.id);
             if (userObj.branchId) setSelectedBranchId(userObj.branchId);
@@ -823,6 +883,12 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               user: userObj
             };
           }
+          // Auth OK pero sin perfil: no inventar nada, avisar.
+          setIsAuthLoading(false);
+          return {
+            success: false,
+            message: 'Tu login es válido pero no tenés perfil en este gimnasio. Pedí en recepción que te den de alta.'
+          };
         }
       }
 

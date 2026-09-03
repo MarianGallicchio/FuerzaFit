@@ -131,6 +131,11 @@ export const AdminMembersView: React.FC = () => {
   const handleCreateMember = async (e: React.FormEvent) => {
     e.preventDefault();
     const plan = getPlanById(newPlanId) || plans[0];
+    // BETA: sin planes no hay alta posible (antes reventaba en silencio).
+    if (!plan) {
+      alert('Este gimnasio aún no tiene planes. Creá uno en la sección Planes y reintentá el alta.');
+      return;
+    }
 
     // BETA: DNI obligatorio y único — es la llave del acceso diario.
     const cleanDni = (newDni || '').replace(/[^0-9]/g, '');
@@ -199,6 +204,11 @@ export const AdminMembersView: React.FC = () => {
   const handleQuickPay = async () => {
     if (!showQuickPayModal) return;
     const targetPlan = getPlanById(quickPayPlanId) || plans[0];
+    // BETA: sin planes, avisar en vez de pantalla negra (targetPlan.id reventaba).
+    if (!targetPlan) {
+      alert('Este gimnasio aún no tiene planes. Creá uno en la sección Planes y reintentá el cobro.');
+      return;
+    }
     setIsProcessingPay(true);
     try {
       await processPayment({
@@ -847,6 +857,11 @@ export const AdminMembersView: React.FC = () => {
 
             <div>
               <label className="block text-slate-400 font-bold mb-1">Plan a Cobrar</label>
+              {plans.length === 0 ? (
+                <p className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-bold">
+                  Sin planes en este gimnasio. Creá uno en la sección Planes para poder cobrar.
+                </p>
+              ) : (
               <select
                 value={quickPayPlanId}
                 onChange={e => setQuickPayPlanId(e.target.value)}
@@ -858,6 +873,7 @@ export const AdminMembersView: React.FC = () => {
                   </option>
                 ))}
               </select>
+              )}
             </div>
 
             <div>
