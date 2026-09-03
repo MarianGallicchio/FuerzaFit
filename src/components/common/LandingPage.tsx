@@ -98,33 +98,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 )}
               </div>
             ) : (
-              /* Public visitor buttons */
+              /* Public visitor buttons — ahora navegan a páginas dedicadas /admin y /socio */
               <>
-                <button
+                <a
                   id="btn-landing-admin"
-                  onClick={() => onOpenAuth('admin')}
+                  href="/admin"
+                  onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/admin'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
                   className="px-3.5 py-2 rounded-xl text-xs font-bold text-amber-300 hover:text-amber-200 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors flex items-center gap-1.5"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
                   <span>Panel Admin</span>
-                </button>
+                </a>
 
-                <button
+                <a
                   id="btn-landing-login"
-                  onClick={() => onOpenAuth('login')}
+                  href="/socio"
+                  onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/socio'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
                   className="px-4 py-2 rounded-xl text-xs font-bold text-slate-200 hover:text-white bg-slate-900 hover:bg-slate-850 border border-slate-800 transition-colors"
                 >
                   Ingreso Socios
-                </button>
+                </a>
 
-                <button
+                <a
                   id="btn-landing-register"
-                  onClick={() => onOpenAuth('register')}
+                  href="/socio"
+                  onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/socio'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
                   className="px-4 py-2 rounded-xl text-xs font-black text-slate-950 bg-emerald-500 hover:bg-emerald-400 shadow-md shadow-emerald-500/20 transition-all active:scale-95 flex items-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Quiero ser socio</span>
-                </button>
+                </a>
               </>
             )}
           </div>
@@ -157,33 +160,36 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             reserva de clases en vivo y control de aforo en tiempo real.
           </p>
 
-          {/* Hero CTAs */}
+          {/* Hero CTAs — páginas separadas */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <button
+            <a
               id="btn-hero-join"
-              onClick={() => onOpenAuth('register')}
+              href="/socio"
+              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/socio'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <span>Comenzar Ahora — Quiero Ser Socio</span>
               <ArrowRight className="w-4 h-4" />
-            </button>
+            </a>
 
-            <button
+            <a
               id="btn-hero-login"
-              onClick={() => onOpenAuth('login')}
+              href="/socio"
+              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/socio'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
               className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all"
             >
-              <span>Acceso para Socios & Personal</span>
-            </button>
+              <span>Ingresar como Socio</span>
+            </a>
           </div>
 
           {/* Live System Pillars Showcase Cards */}
           <div id="servicios" className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-12 text-left">
             
             {/* Athlete App Card */}
-            <div
-              onClick={() => onOpenAuth('register')}
-              className="group p-6 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 transition-all cursor-pointer shadow-xl relative overflow-hidden"
+            <a
+              href="/socio"
+              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/socio'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
+              className="group p-6 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/50 transition-all cursor-pointer shadow-xl relative overflow-hidden block"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -205,12 +211,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span>Registrarme y Activar Pase</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
-            </div>
+            </a>
 
             {/* Admin ERP Card */}
-            <div
-              onClick={() => onOpenAuth('admin')}
-              className="group p-6 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 transition-all cursor-pointer shadow-xl relative overflow-hidden"
+            <a
+              href="/admin"
+              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/admin'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
+              className="group p-6 rounded-3xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/50 transition-all cursor-pointer shadow-xl relative overflow-hidden block"
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
@@ -232,7 +239,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span>Ingresar al Panel de Administración</span>
                 <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </div>
-            </div>
+            </a>
 
           </div>
 
@@ -293,13 +300,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
               </div>
 
-              <button
-                onClick={() => onOpenAuth('register', plan.id)}
+              <a
+                href="/socio"
+                onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', `/socio?plan=${plan.id}`); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
                 className="mt-6 w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-md shadow-emerald-500/20 transition-all flex items-center justify-center gap-2"
               >
                 <span>Elegir Plan {plan.name}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              </a>
             </div>
           ))}
         </div>
@@ -375,21 +383,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-            <button
-              onClick={() => onOpenAuth('admin')}
+            <a
+              href="/admin"
+              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/admin'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
               className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-slate-850 hover:bg-slate-800 border border-slate-700 text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition-all"
             >
               <ShieldCheck className="w-4 h-4 text-amber-400" />
               <span>Acceso Administrador</span>
-            </button>
+            </a>
 
-            <button
-              onClick={() => onOpenAuth('register_gym')}
+            <a
+              href="/admin"
+              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/admin'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
               className="w-full sm:w-auto px-5 py-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-lg shadow-amber-400/20 flex items-center justify-center gap-2 transition-all active:scale-95"
             >
               <Building2 className="w-4 h-4" />
               <span>Registrar Mi Gimnasio</span>
-            </button>
+            </a>
           </div>
         </div>
       </section>

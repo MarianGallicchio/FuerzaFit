@@ -128,6 +128,8 @@ interface GymContextType {
     method: PaymentMethod;
     amountARS: number;
     notes?: string;
+    discountARS?: number;
+    discountReason?: string;
   }) => Promise<{ success: boolean; payment: Payment; membership: Membership }>;
   recordManualPayment: (params: {
     userId: string;
@@ -136,6 +138,8 @@ interface GymContextType {
     amountARS: number;
     notes?: string;
     transactionReference?: string;
+    discountARS?: number;
+    discountReason?: string;
   }) => Promise<{
     success: boolean;
     payment: Payment;
@@ -166,6 +170,8 @@ interface GymContextType {
     planId: string;
     initialPaymentMethod: PaymentMethod;
     amountARS?: number;
+    discountARS?: number;
+    discountReason?: string;
   }) => Promise<{ success: boolean; user: User; membership: Membership; payment: Payment; tempPassword: string; activationOtp: string; loginReady: boolean; loginHint?: string }>;
   updateMember: (userId: string, data: Partial<User>) => void;
   deleteMember: (userId: string) => void;
@@ -1212,18 +1218,23 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [users]);
 
   // Robust Mercado Pago and payment processing with idempotency & atomic membership extension
+  // Soporta descuento de primera cuota u otras promos: discountARS + discountReason
   const processPayment = async ({
     userId,
     planId,
     method,
     amountARS,
-    notes
+    notes,
+    discountARS,
+    discountReason
   }: {
     userId: string;
     planId: string;
     method: PaymentMethod;
     amountARS: number;
     notes?: string;
+    discountARS?: number;
+    discountReason?: string;
   }) => {
     const user = getUserById(userId);
     const plan = getPlanById(planId);
@@ -1236,6 +1247,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? `MP-TRX-${Math.floor(100000000 + Math.random() * 900000000)}` 
       : `${method.toUpperCase()}-${Math.floor(1000000 + Math.random() * 9000000)}`;
 
+    const safeDiscount = Math.max(0, Math.min(Number(discountARS) || 0, plan.priceARS - 1));
+    const netAmount = Math.max(1, Number(amountARS) || 0);
     const newPayment: Payment = {
       id: `pay-${Date.now()}`,
       gymId: currentGymId,
@@ -1244,7 +1257,7 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userEmail: user.email,
       planId: plan.id,
       planName: plan.name,
-      amountARS,
+      amountARS: netAmount,
       currency: 'ARS',
       method,
       status: 'approved',
@@ -1252,6 +1265,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       transactionId,
       idempotencyKey,
       mpPaymentId: method === 'mercadopago' ? transactionId : undefined,
+      discountARS: safeDiscount > 0 ? safeDiscount : undefined,
+      discountReason: safeDiscount > 0 ? (discountReason || 'Descuento aplicado') : undefined,
       notes,
       receiptUrl: method === 'mercadopago' ? `https://www.mercadopago.com.ar/receipt/${transactionId}` : undefined
     };
@@ -1323,7 +1338,9 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     method,
     amountARS,
     notes,
-    transactionReference
+    transactionReference,
+    discountARS,
+    discountReason
   }: {
     userId: string;
     planId: string;
@@ -1331,6 +1348,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     amountARS: number;
     notes?: string;
     transactionReference?: string;
+    discountARS?: number;
+    discountReason?: string;
   }) => {
     const user = getUserById(userId);
     const plan = getPlanById(planId);
@@ -1348,6 +1367,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const transactionId = transactionReference?.trim() || `MANUAL-${method.toUpperCase()}-${Math.floor(100000 + Math.random() * 900000)}`;
     const idempotencyKey = `idem-manual-${method}-${userId}-${Date.now()}`;
 
+    const safeDiscountManual = Math.max(0, Math.min(Number(discountARS) || 0, plan.priceARS - 1));
+    const netManual = Math.max(1, Number(amountARS) || 0);
     // REGLA FUNDAMENTAL: Los pagos manuales NO se marcan como 'approved' automáticamente. Se crean como 'pending'.
     const newManualPayment: Payment = {
       id: `pay-manual-${Date.now()}`,
@@ -1357,13 +1378,15 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       userEmail: user.email,
       planId: plan.id,
       planName: plan.name,
-      amountARS,
+      amountARS: netManual,
       currency: 'ARS',
       method,
       status: 'pending', // No aprobado automáticamente
       paymentDate: new Date().toISOString(),
       transactionId,
       idempotencyKey,
+      discountARS: safeDiscountManual > 0 ? safeDiscountManual : undefined,
+      discountReason: safeDiscountManual > 0 ? (discountReason || 'Descuento aplicado') : undefined,
       notes: notes || (transactionReference ? `Comprobante/Ref: ${transactionReference}` : undefined)
     };
 
@@ -1379,11 +1402,12 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Notificación interna para administración
+    const discountNoteManual = safeDiscountManual > 0 ? ` (Desc. $${safeDiscountManual.toLocaleString('es-AR')} — ${discountReason || 'promo'})` : '';
     const notif: GymNotification = {
       id: `notif-manual-pay-${Date.now()}`,
       userId: 'all',
       title: 'Pago manual registrado (Pendiente de Auditoría)',
-      message: `Se ingresó cobro manual de $${amountARS.toLocaleString('es-AR')} (${method}) para ${user.name}. Requiere confirmación de caja para extender pase.`,
+      message: `Se ingresó cobro manual de $${netManual.toLocaleString('es-AR')}${discountNoteManual} (${method}) para ${user.name}. Requiere confirmación de caja para extender pase.`,
       type: 'payment',
       read: false,
       createdAt: new Date().toISOString()
@@ -1973,6 +1997,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     planId: string;
     initialPaymentMethod: PaymentMethod;
     amountARS?: number;
+    discountARS?: number;
+    discountReason?: string;
   }) => {
     const plan = getPlanById(data.planId) || plans[0];
     const tempPassword = `socio${Math.floor(1000 + Math.random() * 9000)}`;
@@ -2025,7 +2051,12 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const durationDays = plan.durationMonths > 0 ? plan.durationMonths * 30 : 1;
     const now = new Date();
     const endDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-    const chargeAmount = data.amountARS !== undefined ? data.amountARS : plan.priceARS;
+    const safeDiscountAlta = Math.max(0, Math.min(Number(data.discountARS) || 0, plan.priceARS - 1));
+    const grossAlta = plan.priceARS;
+    const netAlta = data.amountARS !== undefined ? Math.max(1, Number(data.amountARS)) : Math.max(1, grossAlta - safeDiscountAlta);
+    // Si viene amountARS explícito, derivar discount implícito si no se pasó
+    const finalDiscountAlta = safeDiscountAlta > 0 ? safeDiscountAlta : (grossAlta > netAlta ? grossAlta - netAlta : 0);
+    const chargeAmount = netAlta;
 
     const newPayment: Payment = {
       id: `pay-${Date.now()}`,
@@ -2041,7 +2072,9 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'approved',
       paymentDate: now.toISOString(),
       transactionId: `ALTA-${Math.floor(100000 + Math.random() * 900000)}`,
-      idempotencyKey: `idem-alta-${newId}-${Date.now()}`
+      idempotencyKey: `idem-alta-${newId}-${Date.now()}`,
+      discountARS: finalDiscountAlta > 0 ? finalDiscountAlta : undefined,
+      discountReason: finalDiscountAlta > 0 ? (data.discountReason || 'Primera cuota / Bienvenida') : undefined,
     };
 
     const newMembership: Membership = {
@@ -2082,11 +2115,12 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // Add reception log notification
+    const discountNoteAlta = finalDiscountAlta > 0 ? ` (Desc. $${finalDiscountAlta.toLocaleString('es-AR')} — ${data.discountReason || 'Primera cuota'})` : '';
     const adminNotif: GymNotification = {
       id: `notif-alta-${Date.now()}`,
       userId: 'all',
       title: `Nuevo socio ingresado en caja: ${newUser.name}`,
-      message: `Plan ${plan.name} abonado con ${data.initialPaymentMethod === 'mercadopago' ? 'Mercado Pago' : data.initialPaymentMethod === 'cash' ? 'Efectivo en Caja' : data.initialPaymentMethod === 'transfer' ? 'Transferencia' : 'Débito'}. Total: $${chargeAmount.toLocaleString('es-AR')}.`,
+      message: `Plan ${plan.name} abonado con ${data.initialPaymentMethod === 'mercadopago' ? 'Mercado Pago' : data.initialPaymentMethod === 'cash' ? 'Efectivo en Caja' : data.initialPaymentMethod === 'transfer' ? 'Transferencia' : 'Débito'}. Total: $${chargeAmount.toLocaleString('es-AR')}${discountNoteAlta}.`,
       type: 'payment',
       read: false,
       createdAt: now.toISOString()

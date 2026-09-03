@@ -208,14 +208,24 @@ export function generatePaymentReceiptPDF({
   doc.setDrawColor(226, 232, 240);
   doc.roundedRect(totalsBoxX, currentY, totalsBoxWidth, 34, 2, 2, 'S');
 
+  const discountVal = Number(payment.discountARS) || 0;
+  const grossTotal = discountVal > 0 ? payment.amountARS + discountVal : payment.amountARS;
+  const grossFormatted = `$${grossTotal.toLocaleString('es-AR')} ARS`;
+  const discountFormatted = discountVal > 0 ? `-$${discountVal.toLocaleString('es-AR')} ARS` : '$0,00 ARS';
+
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(midSlate[0], midSlate[1], midSlate[2]);
   doc.text('Subtotal:', totalsBoxX + 6, currentY + 8);
-  doc.text(formattedTotal, totalsBoxX + totalsBoxWidth - 6, currentY + 8, { align: 'right' });
+  doc.text(discountVal > 0 ? grossFormatted : formattedTotal, totalsBoxX + totalsBoxWidth - 6, currentY + 8, { align: 'right' });
 
   doc.text('Bonificaciones / Descuentos:', totalsBoxX + 6, currentY + 15);
-  doc.text('$0,00 ARS', totalsBoxX + totalsBoxWidth - 6, currentY + 15, { align: 'right' });
+  doc.text(discountFormatted, totalsBoxX + totalsBoxWidth - 6, currentY + 15, { align: 'right' });
+  if (discountVal > 0 && payment.discountReason) {
+    doc.setFontSize(6.5);
+    doc.setTextColor(5, 150, 105);
+    doc.text(`(${payment.discountReason})`, totalsBoxX + totalsBoxWidth - 6, currentY + 18.5, { align: 'right' });
+  }
 
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.rect(totalsBoxX, currentY + 20, totalsBoxWidth, 0.5, 'F');

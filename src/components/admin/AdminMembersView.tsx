@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGym } from '../../context/GymContext';
-import { User, Membership, SubscriptionPlan, PaymentMethod } from '../../types';
+import { User, Membership, SubscriptionPlan, PaymentMethod, DISCOUNT_REASONS } from '../../types';
 import {
   Users,
   Search,
@@ -72,6 +72,10 @@ export const AdminMembersView: React.FC = () => {
   const [newBranchId, setNewBranchId] = useState(selectedBranchId || 'branch-1');
   const [newPlanId, setNewPlanId] = useState(plans[0]?.id || '');
   const [newAmountARS, setNewAmountARS] = useState<number>(plans[0]?.priceARS || 25000);
+  const [newDiscountARS, setNewDiscountARS] = useState<number>(0);
+  const [newDiscountReason, setNewDiscountReason] = useState<string>(DISCOUNT_REASONS[0]);
+  const [newDiscountMode, setNewDiscountMode] = useState<'ars' | 'percent'>('ars');
+  const [newDiscountPercent, setNewDiscountPercent] = useState<number>(0);
   const [newPaymentMethod, setNewPaymentMethod] = useState<PaymentMethod>('cash');
   const [newMedicalClearance, setNewMedicalClearance] = useState(true);
   const [newEmergencyName, setNewEmergencyName] = useState('');
@@ -99,7 +103,39 @@ export const AdminMembersView: React.FC = () => {
   const handlePlanChange = (planId: string) => {
     setNewPlanId(planId);
     const p = getPlanById(planId);
-    if (p) setNewAmountARS(p.priceARS);
+    if (p) {
+      setNewAmountARS(p.priceARS);
+      // recalcular descuento porcentual si estaba activo
+      if (newDiscountMode === 'percent' && newDiscountPercent > 0) {
+        const disc = Math.round(p.priceARS * (newDiscountPercent / 100));
+        setNewDiscountARS(disc);
+        setNewAmountARS(Math.max(1, p.priceARS - disc));
+      } else {
+        setNewDiscountARS(0);
+        setNewDiscountPercent(0);
+      }
+    }
+  };
+
+  const handleDiscountPercentChange = (pct: number) => {
+    const clamped = Math.max(0, Math.min(100, pct));
+    setNewDiscountPercent(clamped);
+    const plan = getPlanById(newPlanId) || plans[0];
+    if (plan) {
+      const disc = Math.round(plan.priceARS * (clamped / 100));
+      setNewDiscountARS(disc);
+      setNewAmountARS(Math.max(1, plan.priceARS - disc));
+    }
+  };
+
+  const handleDiscountARSChange = (val: number) => {
+    const plan = getPlanById(newPlanId) || plans[0];
+    const max = plan ? plan.priceARS - 1 : 999999;
+    const clamped = Math.max(0, Math.min(val, max));
+    setNewDiscountARS(clamped);
+    if (plan) setNewAmountARS(Math.max(1, plan.priceARS - clamped));
+    // sync percent
+    if (plan && plan.priceARS > 0) setNewDiscountPercent(Math.round((clamped / plan.priceARS) * 100));
   };
 
   // Filter logic
@@ -158,6 +194,8 @@ export const AdminMembersView: React.FC = () => {
       planId: newPlanId,
       initialPaymentMethod: newPaymentMethod,
       amountARS: Number(newAmountARS),
+      discountARS: Number(newDiscountARS) || 0,
+      discountReason: newDiscountARS > 0 ? newDiscountReason : undefined,
       branchId: newBranchId || selectedBranchId,
       medicalClearance: newMedicalClearance,
       notes: newNotes,
@@ -193,6 +231,9 @@ export const AdminMembersView: React.FC = () => {
     setNewNotes('');
     setNewEmergencyName('');
     setNewEmergencyPhone('');
+    setNewDiscountARS(0);
+    setNewDiscountPercent(0);
+    setNewDiscountReason(DISCOUNT_REASONS[0]);
   };
 
   const handleAssignRoutine = () => {
@@ -603,13 +644,57 @@ export const AdminMembersView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-300 font-bold mb-1">Cobro Inicial en Caja (ARS)</label>
+                  <label className="block text-slate-300 font-bold mb-1">Cobro Inicial en Caja (ARS) — Neto a cobrar</label>
                   <input
                     type="number"
                     value={newAmountARS}
                     onChange={e => setNewAmountARS(Number(e.target.value))}
-                    className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none"
+                    className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none font-mono font-bold"
                   />
+                  {(() => {
+                    const plan = getPlanById(newPlanId) || plans[0];
+                    const gross = plan?.priceARS || 0;
+                    const disc = newDiscountARS || 0;
+                    if (disc > 0) return <p className="text-[10px] text-emerald-400 mt-1 font-bold">Tarifa lista: ${gross.toLocaleString('es-AR')} → Descuento ${disc.toLocaleString('es-AR')} → Neto ${newAmountARS.toLocaleString('es-AR')}</p>;
+                    return <p className="text-[10px] text-slate-500 mt-1">Tarifa lista del plan: ${gross.toLocaleString('es-AR')}</p>;
+                  })()}
+                </div>
+
+                {/* DESCUENTO PRIMERA CUOTA */}
+                <div className="sm:col-span-2 p-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-emerald-300 font-black text-xs flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">%</span>
+                      Descuento 1ª Cuota (Bienvenida / Promo)
+                    </label>
+                    <div className="flex items-center gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800">
+                      <button type="button" onClick={() => setNewDiscountMode('ars')} className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${newDiscountMode==='ars' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'}`}>$ ARS</button>
+                      <button type="button" onClick={() => setNewDiscountMode('percent')} className={`px-2.5 py-1 rounded-lg text-[11px] font-bold ${newDiscountMode==='percent' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400'}`}>% Off</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-slate-400 font-bold mb-1 text-[11px]">{newDiscountMode==='ars' ? 'Monto descontado ($ ARS)' : 'Porcentaje descuento (%)'}</label>
+                      {newDiscountMode==='ars' ? (
+                        <input type="number" min={0} max={(getPlanById(newPlanId)?.priceARS || 35000)-1} value={newDiscountARS} onChange={e => handleDiscountARSChange(Number(e.target.value))} placeholder="Ej: 5000" className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none font-mono" />
+                      ) : (
+                        <input type="number" min={0} max={90} value={newDiscountPercent} onChange={e => handleDiscountPercentChange(Number(e.target.value))} placeholder="Ej: 20" className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none font-mono" />
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-slate-400 font-bold mb-1 text-[11px]">Motivo del descuento</label>
+                      <select value={newDiscountReason} onChange={e => setNewDiscountReason(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-emerald-400 focus:outline-none text-xs">
+                        {DISCOUNT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[10,15,20,50].map(pct => (
+                      <button key={pct} type="button" onClick={() => { setNewDiscountMode('percent'); handleDiscountPercentChange(pct); }} className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 hover:bg-slate-700 border border-slate-700 text-emerald-300">{pct}% OFF</button>
+                    ))}
+                    <button type="button" onClick={() => { setNewDiscountARS(0); setNewDiscountPercent(0); const p=getPlanById(newPlanId); if(p) setNewAmountARS(p.priceARS); }} className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300">Sin descuento</button>
+                  </div>
+                  {newDiscountARS>0 && <p className="text-[11px] text-emerald-300 font-bold">✓ Se cobrará ${newAmountARS.toLocaleString('es-AR')} ARS (ahorro ${newDiscountARS.toLocaleString('es-AR')} por {newDiscountReason}). Queda registrado para auditoría y comprobante PDF.</p>}
                 </div>
 
                 <div>

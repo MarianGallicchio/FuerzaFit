@@ -23,7 +23,14 @@ function normalizeMode(raw: string | null | undefined): AppMode | null {
 }
 
 export function getAppMode(): AppMode {
-  // 1. Query param tiene prioridad (permite 2 links con el mismo deploy)
+  // 1. Path dedicado tiene máxima prioridad: /admin y /socio son páginas distintas
+  try {
+    const path = window.location.pathname.toLowerCase();
+    // soporta /admin, /admin/, /admin/login, /panel, /dueno, /socio, /socios, /member, /login, /ingreso
+    if (/^\/(admin|panel|dueno|dueño|staff)(\/|$)/.test(path)) return 'admin';
+    if (/^\/(socio|socios|member|members|atleta|login|ingreso)(\/|$)/.test(path)) return 'member';
+  } catch {}
+  // 2. Query param (compatibilidad con links antiguos ?app=admin)
   try {
     const params = new URLSearchParams(window.location.search);
     const fromQuery =
@@ -37,7 +44,7 @@ export function getAppMode(): AppMode {
     // SSR / entorno sin window — caer a env
   }
 
-  // 2. Variable de entorno (para builds separadas admin-dist / socio-dist)
+  // 3. Variable de entorno (para builds separadas admin-dist / socio-dist)
   const fromEnv = normalizeMode(
     (import.meta as any)?.env?.VITE_APP_MODE as string | undefined
   );
@@ -102,12 +109,41 @@ export function isRoleAllowedInMode(role: string | undefined, mode: AppMode): bo
 }
 
 export function buildModeUrl(mode: Exclude<AppMode, 'full'>): string {
+  // Ahora usa rutas limpias /admin y /socio (sin reload innecesario si ya estamos ahí)
   try {
     const url = new URL(window.location.href);
-    url.searchParams.set('app', mode === 'admin' ? 'admin' : 'socio');
+    // limpiar query antigua para no duplicar
+    url.searchParams.delete('app');
+    url.searchParams.delete('mode');
     url.hash = '';
+    url.pathname = mode === 'admin' ? '/admin' : '/socio';
     return url.toString();
   } catch {
-    return mode === 'admin' ? '?app=admin' : '?app=socio';
+    return mode === 'admin' ? '/admin' : '/socio';
+  }
+}
+
+// Helper para navegación SPA sin reload (pushState)
+export function navigateToMode(mode: Exclude<AppMode, 'full'>): void {
+  try {
+    const target = mode === 'admin' ? '/admin' : '/socio';
+    if (window.location.pathname !== target) {
+      window.history.pushState({}, '', target);
+      // disparar popstate para que AppShell reaccione
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  } catch {
+    window.location.href = buildModeUrl(mode);
+  }
+}
+
+export function navigateToPath(path: string): void {
+  try {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    }
+  } catch {
+    window.location.href = path;
   }
 }

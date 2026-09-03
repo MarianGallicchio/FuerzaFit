@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGym } from '../../context/GymContext';
-import { SubscriptionPlan, PaymentMethod } from '../../types';
+import { SubscriptionPlan, PaymentMethod, DISCOUNT_REASONS } from '../../types';
 import {
   X,
   CreditCard,
@@ -32,6 +32,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tar
 
   const [selectedPlanId, setSelectedPlanId] = useState<string>(targetPlanId || plans[0]?.id || '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('mercadopago');
+  const [couponCode, setCouponCode] = useState('');
+  const [discountARS, setDiscountARS] = useState(0);
+  const [discountReason, setDiscountReason] = useState('');
+  const [couponFeedback, setCouponFeedback] = useState<{type:'success'|'error',msg:string}|null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -47,6 +51,35 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tar
   const currentMembership = currentUser ? getMembershipForUser(currentUser.id) : null;
   const selectedPlan = plans.find(p => p.id === selectedPlanId) || plans[0];
 
+  const handleApplyCoupon = () => {
+    const code = couponCode.trim().toUpperCase();
+    const planPrice = selectedPlan.priceARS;
+    // Cupones demo: BIENVENIDA20=20%, FUERZA15=15%, REFERIDO10=10%, BETA50=50%
+    const coupons: Record<string,{pct:number, reason:string}> = {
+      'BIENVENIDA20': {pct:20, reason:'Primera cuota / Bienvenida'},
+      'BIENVENIDA10': {pct:10, reason:'Primera cuota / Bienvenida'},
+      'FUERZA15': {pct:15, reason:'Promo / Referido'},
+      'REFERIDO10': {pct:10, reason:'Promo / Referido'},
+      'FAMILIA20': {pct:20, reason:'Plan familiar'},
+      'BETA50': {pct:50, reason:'Beca deportiva'},
+    };
+    if (!code) { setDiscountARS(0); setDiscountReason(''); setCouponFeedback(null); return; }
+    if (coupons[code]) {
+      const disc = Math.round(planPrice * coupons[code].pct / 100);
+      setDiscountARS(disc);
+      setDiscountReason(coupons[code].reason);
+      setCouponFeedback({type:'success', msg:`Cupón ${code}: ${coupons[code].pct}% OFF ($${disc.toLocaleString('es-AR')}) aplicado — ${coupons[code].reason}`});
+    } else {
+      setDiscountARS(0); setDiscountReason('');
+      setCouponFeedback({type:'error', msg:'Cupón no válido. Probá BIENVENIDA20, FUERZA15 o REFERIDO10'});
+    }
+  };
+
+  const handlePlanSelectWithCouponReset = (planId: string) => {
+    setSelectedPlanId(planId);
+    setDiscountARS(0); setDiscountReason(''); setCouponCode(''); setCouponFeedback(null);
+  };
+
   const handlePay = async () => {
     if (!currentUser || !selectedPlan) return;
     setIsProcessing(true);
@@ -56,12 +89,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tar
       // Simulate realistic network roundtrip to Mercado Pago API
       await new Promise(resolve => setTimeout(resolve, 1400));
 
+      const netAmount = Math.max(1, selectedPlan.priceARS - discountARS);
       const result = await processPayment({
         userId: currentUser.id,
         planId: selectedPlan.id,
         method: paymentMethod,
-        amountARS: selectedPlan.priceARS,
-        notes: `Pago online vía ${paymentMethod === 'mercadopago' ? 'Mercado Pago Checkout Pro' : paymentMethod}`
+        amountARS: netAmount,
+        discountARS: discountARS > 0 ? discountARS : undefined,
+        discountReason: discountARS > 0 ? discountReason : undefined,
+        notes: `Pago online vía ${paymentMethod === 'mercadopago' ? 'Mercado Pago Checkout Pro' : paymentMethod}${discountARS>0 ? ` (cupón ${couponCode.toUpperCase()} −$${discountARS})` : ''}`
       });
 
       setPaymentSuccess(result);
@@ -142,8 +178,15 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tar
                 <span className="text-slate-400">Monto Abonado:</span>
                 <span className="font-bold text-emerald-400 text-sm">
                   ${paymentSuccess.payment.amountARS.toLocaleString('es-AR')} ARS
+                  {paymentSuccess.payment.discountARS ? <span className="ml-2 text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">Desc. ${paymentSuccess.payment.discountARS.toLocaleString('es-AR')} ({paymentSuccess.payment.discountReason})</span> : null}
                 </span>
               </div>
+              {paymentSuccess.payment.discountARS ? (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Tarifa lista:</span>
+                  <span className="font-bold text-slate-400 line-through text-xs">${(paymentSuccess.payment.amountARS + paymentSuccess.payment.discountARS).toLocaleString('es-AR')} ARS</span>
+                </div>
+              ) : null}
               <div className="flex justify-between">
                 <span className="text-slate-400">Medio de Pago:</span>
                 <span className="font-medium text-slate-200 uppercase">
@@ -204,7 +247,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tar
                   return (
                     <div
                       key={plan.id}
-                      onClick={() => setSelectedPlanId(plan.id)}
+                      onClick={() => handlePlanSelectWithCouponReset(plan.id)}
                       className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
                         isSelected
                           ? 'bg-emerald-500/10 border-emerald-500/50 ring-1 ring-emerald-500/30'
@@ -338,6 +381,21 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tar
               </div>
             )}
 
+            {/* CUPÓN DESCUENTO */}
+            <div className="p-3 rounded-xl bg-slate-800/50 border border-slate-700/60 space-y-2">
+              <label className="block text-xs font-bold text-slate-300 flex items-center gap-2">
+                <span className="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px]">%</span>
+                ¿Tenés cupón? (1ª cuota, referido, etc.)
+              </label>
+              <div className="flex gap-2">
+                <input type="text" placeholder="Ej: BIENVENIDA20" value={couponCode} onChange={e=>setCouponCode(e.target.value.toUpperCase())} onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); handleApplyCoupon(); }}} className="flex-1 py-2 px-3 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 font-mono uppercase tracking-wider focus:border-emerald-500 focus:outline-none" />
+                <button type="button" onClick={handleApplyCoupon} className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">Aplicar</button>
+                {discountARS>0 && <button type="button" onClick={()=>{setDiscountARS(0); setDiscountReason(''); setCouponCode(''); setCouponFeedback(null);}} className="px-3 py-2 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 font-bold text-xs">Quitar</button>}
+              </div>
+              {couponFeedback && <p className={`text-[11px] font-bold ${couponFeedback.type==='success'?'text-emerald-400':'text-rose-400'}`}>{couponFeedback.msg}</p>}
+              <p className="text-[11px] text-slate-500">Probá: <code className="text-emerald-300 bg-slate-900 px-1 rounded">BIENVENIDA20</code> (20% 1ª cuota), <code className="text-sky-300 bg-slate-900 px-1 rounded">FUERZA15</code>, <code className="text-amber-300 bg-slate-900 px-1 rounded">REFERIDO10</code></p>
+            </div>
+
             {errorMessage && (
               <div className="p-3 bg-rose-950/50 border border-rose-800 text-rose-300 rounded-xl text-xs flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
@@ -349,9 +407,16 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, tar
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] text-slate-400">Total a Pagar</p>
-                <p className="text-xl font-black text-white">
-                  ${selectedPlan.priceARS.toLocaleString('es-AR')} <span className="text-xs font-normal text-slate-400">ARS</span>
-                </p>
+                {discountARS>0 ? (
+                  <div>
+                    <p className="text-xs text-slate-500 line-through">${selectedPlan.priceARS.toLocaleString('es-AR')} ARS</p>
+                    <p className="text-xl font-black text-emerald-400">${(selectedPlan.priceARS - discountARS).toLocaleString('es-AR')} <span className="text-xs font-normal text-slate-400">ARS</span> <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">−${discountARS.toLocaleString('es-AR')} ({discountReason})</span></p>
+                  </div>
+                ) : (
+                  <p className="text-xl font-black text-white">
+                    ${selectedPlan.priceARS.toLocaleString('es-AR')} <span className="text-xs font-normal text-slate-400">ARS</span>
+                  </p>
+                )}
               </div>
 
               <button

@@ -1,29 +1,42 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { GymProvider, useGym } from './context/GymContext';
 import { PaymentModal } from './components/common/PaymentModal';
 import { AuthModal } from './components/common/AuthModal';
 import { MemberQrModal } from './components/member/MemberQrModal';
 import { SupabaseSetupNotice } from './components/common/SupabaseSetupNotice';
 import { isSupabaseConfigured } from './lib/supabase';
-import { getAppMode, getAppModeConfig, isRoleAllowedInMode, buildModeUrl } from './lib/appMode';
+import { getAppMode, getAppModeConfig, isRoleAllowedInMode, buildModeUrl, navigateToPath } from './lib/appMode';
 import { ShieldCheck, User, LogOut, ArrowRight } from 'lucide-react';
 
 // Distinct Role Layouts & Landing Page
 import { LandingPage } from './components/common/LandingPage';
 import { MemberLayout } from './components/member/MemberLayout';
 import { AdminLayout } from './components/admin/AdminLayout';
+import { MemberLoginPage } from './pages/MemberLoginPage';
+import { AdminLoginPage } from './pages/AdminLoginPage';
 
 const AppShell: React.FC = () => {
   const { currentUser, logout, getMembershipForUser, getPlanById } = useGym();
 
-  // Modo de acceso: ?app=admin | ?app=socio | full (mismo deploy, dos links)
-  const appMode = useMemo(() => getAppMode(), []);
+  // Modo de acceso: /admin y /socio son páginas distintas (fallback ?app=)
+  const [modeTick, setModeTick] = useState(0);
+  useEffect(() => {
+    const onPop = () => setModeTick(t => t + 1);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const appMode = useMemo(() => getAppMode(), [modeTick]);
   const modeConfig = useMemo(() => getAppModeConfig(appMode), [appMode]);
   const lockedRole = appMode === 'admin' ? ('admin' as const) : appMode === 'member' ? ('member' as const) : null;
 
   // Landing Page vs App View state
   const [showLanding, setShowLanding] = useState(false);
-  const [selectedPlanForReg, setSelectedPlanForReg] = useState<string | undefined>(undefined);
+  const [selectedPlanForReg, setSelectedPlanForReg] = useState<string | undefined>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('plan');
+      return p || undefined;
+    } catch { return undefined; }
+  });
 
   // Global Modals
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -87,8 +100,8 @@ const AppShell: React.FC = () => {
               <h1 className="text-xl font-black text-white mt-1">Esta cuenta no corresponde a este acceso</h1>
               <p className="text-xs text-slate-400 mt-2 leading-relaxed">
                 {appMode === 'admin'
-                  ? `La cuenta ${currentUser.email} es de socio. Este link es solo para dueño/staff. Abrí el link de socios para continuar.`
-                  : `La cuenta ${currentUser.email} es de staff/administración. Este link es solo para socios. Abrí el link de administración para continuar.`}
+                  ? `La cuenta ${currentUser.email} es de socio. Este link es solo para dueño/staff. Abrí /socio para continuar.`
+                  : `La cuenta ${currentUser.email} es de staff/administración. Este link es solo para socios. Abrí /admin para continuar.`}
               </p>
             </div>
             <div className="space-y-2 pt-2">
@@ -109,8 +122,30 @@ const AppShell: React.FC = () => {
             </div>
           </div>
         </div>
-      ) : /* 1. If not authenticated OR explicitly viewing public landing page */
-      !currentUser || showLanding ? (
+      ) : /* 1. No autenticado → páginas separadas por rol */
+      !currentUser ? (
+        appMode === 'admin' ? (
+          <AdminLoginPage />
+        ) : appMode === 'member' ? (
+          <MemberLoginPage initialPlanId={selectedPlanForReg} />
+        ) : showLanding ? (
+          <LandingPage
+            onOpenAuth={handleOpenAuth}
+            currentUser={currentUser}
+            onGoToDashboard={() => setShowLanding(false)}
+            onLogout={logout}
+          />
+        ) : (
+          /* / (full) sin sesión → landing unificada con dos accesos */
+          <LandingPage
+            onOpenAuth={handleOpenAuth}
+            currentUser={currentUser}
+            onGoToDashboard={() => setShowLanding(false)}
+            onLogout={logout}
+          />
+        )
+      ) : showLanding ? (
+        /* Usuario logueado pero pidió ver landing */
         <LandingPage
           onOpenAuth={handleOpenAuth}
           currentUser={currentUser}
@@ -118,14 +153,14 @@ const AppShell: React.FC = () => {
           onLogout={logout}
         />
       ) : isAdmin ? (
-        /* 2. Admin / Gym Owner Experience (SaaS ERP with Desktop Sidebar & Dense Tables) */
+        /* 2. Admin / Gym Owner Experience */
         <AdminLayout
           onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
           onOpenAuthModal={(mode) => handleOpenAuth(mode === 'profiles' ? 'login' : mode)}
           onViewLanding={() => setShowLanding(true)}
         />
       ) : (
-        /* 3. Member / Athlete Experience (Consumer Fitness App, Mobile-First & Motivational) */
+        /* 3. Member / Athlete Experience */
         <MemberLayout
           onOpenQrModal={() => setIsQrModalOpen(true)}
           onOpenPaymentModal={() => setIsPaymentModalOpen(true)}

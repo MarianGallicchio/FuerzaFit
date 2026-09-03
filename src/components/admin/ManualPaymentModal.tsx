@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGym } from '../../context/GymContext';
-import { PaymentMethod, SubscriptionPlan, User } from '../../types';
+import { PaymentMethod, SubscriptionPlan, User, DISCOUNT_REASONS } from '../../types';
 import {
   X,
   CreditCard,
@@ -56,6 +56,10 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
   const [selectedPlanId, setSelectedPlanId] = useState<string>(plans[0]?.id || '');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [amountARS, setAmountARS] = useState<number>(plans[0]?.priceARS || 35000);
+  const [discountARS, setDiscountARS] = useState<number>(0);
+  const [discountReason, setDiscountReason] = useState<string>(DISCOUNT_REASONS[0]);
+  const [discountMode, setDiscountMode] = useState<'ars' | 'percent'>('ars');
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [transactionReference, setTransactionReference] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -81,6 +85,29 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
     const plan = plans.find(p => p.id === planId);
     if (plan) {
       setAmountARS(plan.priceARS);
+      setDiscountARS(0);
+      setDiscountPercent(0);
+    }
+  };
+
+  const handleDiscountPercentChange = (pct: number) => {
+    const clamped = Math.max(0, Math.min(90, pct));
+    setDiscountPercent(clamped);
+    const plan = plans.find(p => p.id === selectedPlanId) || plans[0];
+    if (plan) {
+      const disc = Math.round(plan.priceARS * (clamped / 100));
+      setDiscountARS(disc);
+      setAmountARS(Math.max(1, plan.priceARS - disc));
+    }
+  };
+  const handleDiscountARSChange = (val: number) => {
+    const plan = plans.find(p => p.id === selectedPlanId) || plans[0];
+    const max = plan ? plan.priceARS - 1 : 999999;
+    const clamped = Math.max(0, Math.min(val, max));
+    setDiscountARS(clamped);
+    if (plan) {
+      setAmountARS(Math.max(1, plan.priceARS - clamped));
+      setDiscountPercent(Math.round((clamped / plan.priceARS) * 100));
     }
   };
 
@@ -139,6 +166,8 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
         planId: selectedPlan.id,
         method: paymentMethod,
         amountARS: Number(amountARS),
+        discountARS: Number(discountARS) || 0,
+        discountReason: discountARS > 0 ? discountReason : undefined,
         notes: notes.trim(),
         transactionReference: transactionReference.trim()
       });
@@ -152,6 +181,8 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
         });
         setTransactionReference('');
         setNotes('');
+        setDiscountARS(0);
+        setDiscountPercent(0);
         // Switch to audit tab after a brief delay
         setTimeout(() => {
           setActiveTab('audit');
@@ -575,7 +606,7 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
                   {/* Monto en ARS */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-300">Monto Cobrado ($ ARS)</label>
+                      <label className="text-xs font-bold text-slate-300">Monto Cobrado Neto ($ ARS)</label>
                       {selectedPlan && amountARS !== selectedPlan.priceARS && (
                         <span className="text-[10px] font-bold text-amber-400">
                           Difiere de tarifa (${selectedPlan.priceARS.toLocaleString('es-AR')})
@@ -590,6 +621,34 @@ export const ManualPaymentModal: React.FC<ManualPaymentModalProps> = ({
                       onChange={e => setAmountARS(Number(e.target.value))}
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-extrabold focus:outline-none focus:border-emerald-500"
                     />
+                    {discountARS>0 && <p className="text-[10px] text-emerald-400 font-bold">Tarifa ${selectedPlan?.priceARS.toLocaleString('es-AR')} − Desc. ${discountARS.toLocaleString('es-AR')} = Neto ${amountARS.toLocaleString('es-AR')} ({discountReason})</p>}
+                  </div>
+
+                  {/* DESCUENTO */}
+                  <div className="sm:col-span-2 p-3 rounded-xl bg-emerald-950/15 border border-emerald-500/20 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-black text-emerald-300">Descuento / Promo (opcional)</label>
+                      <div className="flex gap-1 p-1 bg-slate-900 rounded-lg border border-slate-800">
+                        <button type="button" onClick={()=>setDiscountMode('ars')} className={`px-2 py-0.5 rounded text-[10px] font-bold ${discountMode==='ars'?'bg-emerald-500 text-slate-950':'text-slate-400'}`}>$ ARS</button>
+                        <button type="button" onClick={()=>setDiscountMode('percent')} className={`px-2 py-0.5 rounded text-[10px] font-bold ${discountMode==='percent'?'bg-emerald-500 text-slate-950':'text-slate-400'}`}>% Off</button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        {discountMode==='ars' ? (
+                          <input type="number" min={0} placeholder="Ej: 7000" value={discountARS} onChange={e=>handleDiscountARSChange(Number(e.target.value))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500" />
+                        ) : (
+                          <input type="number" min={0} max={90} placeholder="Ej: 20" value={discountPercent} onChange={e=>handleDiscountPercentChange(Number(e.target.value))} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500" />
+                        )}
+                      </div>
+                      <select value={discountReason} onChange={e=>setDiscountReason(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">
+                        {DISCOUNT_REASONS.map(r=> <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {[10,20,50].map(p=> <button key={p} type="button" onClick={()=>{setDiscountMode('percent'); handleDiscountPercentChange(p);}} className="px-2 py-1 rounded-full text-[10px] font-bold bg-slate-800 border border-slate-700 text-emerald-300">{p}% OFF</button>)}
+                      <button type="button" onClick={()=>{setDiscountARS(0); setDiscountPercent(0); if(selectedPlan) setAmountARS(selectedPlan.priceARS);}} className="px-2 py-1 rounded-full text-[10px] font-bold bg-rose-500/10 border border-rose-500/30 text-rose-300">Sin desc.</button>
+                    </div>
                   </div>
 
                   {/* N° Comprobante / Referencia */}

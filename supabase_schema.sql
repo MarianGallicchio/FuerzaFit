@@ -125,6 +125,8 @@ create table if not exists public.payments (
   raw_gateway_payload jsonb,
   receipt_url text,
   notes text,
+  discount_ars numeric default null,
+  discount_reason text default null,
   created_at timestamptz default timezone('utc'::text, now()) not null
 );
 

@@ -115,8 +115,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
 
     const monthPayments = payments.filter(p => {
       if (p.status !== 'approved') return false;
-      const pDate = new Date(p.createdAt);
-      return pDate.getMonth() === targetMonth && pDate.getFullYear() === targetYear;
+      const pDate = new Date((p as any).paymentDate || (p as any).createdAt || p.paymentDate);
+      return !isNaN(pDate.getTime()) && pDate.getMonth() === targetMonth && pDate.getFullYear() === targetYear;
     });
 
     const total = monthPayments.reduce((sum, p) => sum + p.amountARS, 0);

@@ -74,6 +74,16 @@ export interface Membership {
 export type PaymentMethod = 'mercadopago' | 'cash' | 'transfer' | 'debit_card';
 export type PaymentStatus = 'approved' | 'pending' | 'rejected' | 'refunded';
 
+// Motivos de descuento (primera cuota, promos, convenios). Se guarda el texto libre.
+export const DISCOUNT_REASONS = [
+  'Primera cuota / Bienvenida',
+  'Promo / Referido',
+  'Plan familiar',
+  'Empleado / Convenio',
+  'Beca deportiva',
+  'Ajuste comercial'
+] as const;
+
 export interface Payment {
   id: string;
   gymId?: string;
@@ -86,6 +96,8 @@ export interface Payment {
   currency: 'ARS';
   method: PaymentMethod;
   status: PaymentStatus;
+  discountARS?: number; // Monto descontado (0 si no hubo). amountARS = neto cobrado.
+  discountReason?: string; // Motivo del descuento (ver DISCOUNT_REASONS)
   paymentDate: string;
   transactionId: string;
   idempotencyKey: string;

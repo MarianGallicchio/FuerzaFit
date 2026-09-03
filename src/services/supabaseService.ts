@@ -287,7 +287,7 @@ export async function loadGymData(gymId: string) {
       lastPaymentId: m.last_payment_id
     }));
 
-    // Mapear payments
+    // Mapear payments (con soporte descuento 1ra cuota)
     const payments: Payment[] = (paymentsRes.data || []).map((py: any) => ({
       id: py.id,
       gymId: py.gym_id,
@@ -307,7 +307,9 @@ export async function loadGymData(gymId: string) {
       mpPreferenceId: py.mp_preference_id,
       rawGatewayPayload: py.raw_gateway_payload,
       receiptUrl: py.receipt_url,
-      notes: py.notes
+      notes: py.notes,
+      discountARS: py.discount_ars != null ? Number(py.discount_ars) : undefined,
+      discountReason: py.discount_reason || undefined
     }));
 
     // Mapear routines
@@ -533,8 +535,8 @@ export async function persistNewMember(params: {
       last_payment_id: params.payment.id
     });
 
-    // 3. Pago manual
-    await supabase.from('payments').insert({
+    // 3. Pago manual (con descuento si existe) — fallback si columnas aún no migradas
+    const paymentPayload: any = {
       id: params.payment.id,
       gym_id: params.gymId,
       user_id: params.payment.userId,
@@ -550,8 +552,19 @@ export async function persistNewMember(params: {
       transaction_id: params.payment.transactionId,
       idempotency_key: params.payment.idempotencyKey,
       notes: params.payment.notes || null,
-      receipt_url: params.payment.receiptUrl || null
-    });
+      receipt_url: params.payment.receiptUrl || null,
+      discount_ars: params.payment.discountARS ?? null,
+      discount_reason: params.payment.discountReason ?? null
+    };
+    let { error: payErr } = await supabase.from('payments').insert(paymentPayload);
+    if (payErr && String(payErr.message).includes('discount_ars')) {
+      console.warn('payments.discount_ars aún no existe — reintentando sin descuento. Ejecutá supabase_migration_discount.sql');
+      const { discount_ars, discount_reason, ...fallbackPayload } = paymentPayload;
+      const { error: retryErr } = await supabase.from('payments').insert(fallbackPayload);
+      if (retryErr) console.error('Error persisting new member payment (fallback):', retryErr);
+    } else if (payErr) {
+      console.error('Error persisting new member payment:', payErr);
+    }
   } catch (err) {
     console.error('Error persisting new member to Supabase:', err);
   }
@@ -569,8 +582,8 @@ export async function persistPaymentAndMembership(params: {
   if (!isSupabaseConfigured || !supabase) return;
 
   try {
-    // 1. Guardar pago
-    await supabase.from('payments').insert({
+    // 1. Guardar pago (con descuento) — fallback si columna no existe
+    const payPayload: any = {
       id: params.payment.id,
       gym_id: params.gymId,
       user_id: params.payment.userId,
@@ -589,8 +602,19 @@ export async function persistPaymentAndMembership(params: {
       mp_preference_id: params.payment.mpPreferenceId || null,
       raw_gateway_payload: params.payment.rawGatewayPayload || null,
       receipt_url: params.payment.receiptUrl || null,
-      notes: params.payment.notes || null
-    });
+      notes: params.payment.notes || null,
+      discount_ars: params.payment.discountARS ?? null,
+      discount_reason: params.payment.discountReason ?? null
+    };
+    let { error: insErr } = await supabase.from('payments').insert(payPayload);
+    if (insErr && String(insErr.message).includes('discount_ars')) {
+      console.warn('payments.discount_ars aún no existe — reintentando sin descuento. Ejecutá supabase_migration_discount.sql');
+      const { discount_ars, discount_reason, ...fallback } = payPayload;
+      const { error: retryErr } = await supabase.from('payments').insert(fallback);
+      if (retryErr) console.error('Error persisting payment (fallback):', retryErr);
+    } else if (insErr) {
+      console.error('Error persisting payment:', insErr);
+    }
 
     // 2. Actualizar o insertar membresía
     await supabase.from('memberships').upsert({
@@ -622,7 +646,7 @@ export async function persistManualPaymentRecord(params: {
   if (!isSupabaseConfigured || !supabase) return;
 
   try {
-    const { error } = await supabase.from('payments').insert({
+    const manualPayload: any = {
       id: params.payment.id,
       gym_id: params.gymId,
       user_id: params.payment.userId,
@@ -638,8 +662,17 @@ export async function persistManualPaymentRecord(params: {
       transaction_id: params.payment.transactionId,
       idempotency_key: params.payment.idempotencyKey,
       notes: params.payment.notes || null,
-      receipt_url: params.payment.receiptUrl || null
-    });
+      receipt_url: params.payment.receiptUrl || null,
+      discount_ars: params.payment.discountARS ?? null,
+      discount_reason: params.payment.discountReason ?? null
+    };
+    let { error } = await supabase.from('payments').insert(manualPayload);
+    if (error && String(error.message).includes('discount_ars')) {
+      console.warn('payments.discount_ars aún no existe — reintentando sin descuento. Ejecutá supabase_migration_discount.sql');
+      const { discount_ars, discount_reason, ...fallback } = manualPayload;
+      const retry = await supabase.from('payments').insert(fallback);
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Supabase error inserting manual payment:', error);
