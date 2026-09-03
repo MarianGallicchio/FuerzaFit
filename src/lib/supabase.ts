@@ -23,6 +23,19 @@ export const supabase = isSupabaseConfigured
     })
   : null;
 
+// Cliente secundario sin persistencia de sesión: para crear usuarios (ej: alta de
+// socio desde el panel) sin cerrar la sesión actual del admin/staff.
+export function createSecondarySupabaseClient() {
+  if (!isSupabaseConfigured) return null;
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  });
+}
+
 export const supabaseConfigDetails = {
   hasUrl: Boolean(supabaseUrl),
   hasAnonKey: Boolean(supabaseAnonKey),

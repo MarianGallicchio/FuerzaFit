@@ -87,6 +87,8 @@ export const AdminMembersView: React.FC = () => {
     planName: string;
     amountARS: number;
     paymentMethod: PaymentMethod;
+    loginReady: boolean;
+    loginHint?: string;
   } | null>(null);
   const [copiedCredentials, setCopiedCredentials] = useState(false);
 
@@ -126,7 +128,7 @@ export const AdminMembersView: React.FC = () => {
     return true;
   });
 
-  const handleCreateMember = (e: React.FormEvent) => {
+  const handleCreateMember = async (e: React.FormEvent) => {
     e.preventDefault();
     const plan = getPlanById(newPlanId) || plans[0];
 
@@ -142,7 +144,7 @@ export const AdminMembersView: React.FC = () => {
       return;
     }
 
-    const result = createMember({
+    const result = await createMember({
       name: newName,
       dni: cleanDni,
       email: newEmail,
@@ -172,7 +174,9 @@ export const AdminMembersView: React.FC = () => {
         activationOtp: result.activationOtp,
         planName: plan?.name || 'Membresía',
         amountARS: Number(newAmountARS),
-        paymentMethod: newPaymentMethod
+        paymentMethod: newPaymentMethod,
+        loginReady: result.loginReady,
+        loginHint: result.loginHint
       });
     }
 
@@ -721,6 +725,16 @@ export const AdminMembersView: React.FC = () => {
                 <span className="text-slate-400">Plan & Cobro:</span>
                 <span className="font-bold text-white">
                   {createdSuccessData.planName} (${createdSuccessData.amountARS.toLocaleString('es-AR')} ARS)
+                </span>
+              </div>
+              <div className={`flex items-start gap-2 pt-2 border-t border-slate-700/60 text-[11px] leading-relaxed ${
+                createdSuccessData.loginReady ? 'text-emerald-300' : 'text-amber-300'
+              }`}>
+                <span>{createdSuccessData.loginReady ? '✅' : '⚠️'}</span>
+                <span>
+                  {createdSuccessData.loginReady
+                    ? 'Login del socio activado: entra en ?app=socio con su email y la clave temporal.'
+                    : (createdSuccessData.loginHint || 'Login pendiente: el socio puede activarse con código por email.')}
                 </span>
               </div>
             </div>

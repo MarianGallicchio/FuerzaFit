@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, createSecondarySupabaseClient } from '../lib/supabase';
 import {
   GymTenant,
   User,
@@ -436,6 +436,54 @@ export async function loadGymData(gymId: string) {
   } catch (error) {
     console.error('Error in loadGymData from Supabase:', error);
     return null;
+  }
+}
+
+// ==============================================================================
+// 3b. ALTA DE SOCIO CON LOGIN REAL (desde panel admin, sin tumbar la sesión)
+// Usa un cliente secundario para el signUp y devuelve el auth user id real,
+// necesario para la FK profiles.id → auth.users.id.
+// ==============================================================================
+export async function signUpMemberAuthAccount(data: {
+  email: string;
+  password: string;
+  name: string;
+  phone?: string;
+  dni?: string;
+  branchId?: string;
+}): Promise<{ success: boolean; userId?: string; error?: string }> {
+  const secondary = createSecondarySupabaseClient();
+  if (!secondary) {
+    return { success: false, error: 'Supabase no está configurado.' };
+  }
+
+  try {
+    const { data: authData, error } = await secondary.auth.signUp({
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+      options: {
+        data: {
+          name: data.name.trim(),
+          role: 'member',
+          phone: data.phone?.trim() || '',
+          dni: data.dni?.trim() || '',
+          branch_id: data.branchId || 'branch-1'
+        }
+      }
+    });
+
+    // Cerrar cualquier sesión del cliente secundario (no debe tocar la del admin)
+    await secondary.auth.signOut().catch(() => {});
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    if (!authData.user) {
+      return { success: false, error: 'Supabase no devolvió usuario (revisá Confirm email).' };
+    }
+    return { success: true, userId: authData.user.id };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error al crear credencial del socio.' };
   }
 }
 

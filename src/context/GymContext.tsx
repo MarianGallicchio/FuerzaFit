@@ -32,7 +32,8 @@ import {
   persistRoutine,
   persistNotification,
   persistClassBooking,
-  persistNewClass
+  persistNewClass,
+  signUpMemberAuthAccount
 } from '../services/supabaseService';
 import { isDemoModeEnabled } from '../lib/appMode';
 import { normalizePhoneE164 } from '../lib/phone';
@@ -165,7 +166,7 @@ interface GymContextType {
     planId: string;
     initialPaymentMethod: PaymentMethod;
     amountARS?: number;
-  }) => { success: boolean; user: User; membership: Membership; payment: Payment; tempPassword: string; activationOtp: string };
+  }) => Promise<{ success: boolean; user: User; membership: Membership; payment: Payment; tempPassword: string; activationOtp: string; loginReady: boolean; loginHint?: string }>;
   updateMember: (userId: string, data: Partial<User>) => void;
   deleteMember: (userId: string) => void;
   toggleMembershipSuspension: (userId: string) => void;
@@ -1900,15 +1901,41 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // User management (Caja / Recepción / Admin member registration)
-  const createMember = (data: Omit<User, 'id' | 'createdAt'> & {
+  // BETA FIX: crea credencial Auth real (para que el socio pueda loguearse) y
+  // usa ese id en perfil/membresía/pago (la FK profiles.id lo exige).
+  const createMember = async (data: Omit<User, 'id' | 'createdAt'> & {
     planId: string;
     initialPaymentMethod: PaymentMethod;
     amountARS?: number;
   }) => {
-    const newId = `usr-${Date.now()}`;
     const plan = getPlanById(data.planId) || plans[0];
     const tempPassword = `socio${Math.floor(1000 + Math.random() * 9000)}`;
     const activationOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const memberEmail = data.email.trim().toLowerCase();
+    const memberBranchId = data.branchId || selectedBranchId;
+
+    let newId = `usr-${Date.now()}`;
+    let loginReady = false;
+    let loginHint: string | undefined;
+
+    if (isSupabaseConfigured && supabase) {
+      const authRes = await signUpMemberAuthAccount({
+        email: memberEmail,
+        password: tempPassword,
+        name: data.name.trim(),
+        phone: data.phone.trim(),
+        dni: data.dni?.trim(),
+        branchId: memberBranchId
+      });
+      if (authRes.success && authRes.userId) {
+        newId = authRes.userId;
+        loginReady = true;
+      } else {
+        loginHint = authRes.error?.toLowerCase().includes('already')
+          ? 'Ese email ya tenía cuenta: el socio puede ingresar con OTP o su clave.'
+          : `No se pudo crear el login (${authRes.error || 'error'}). El socio puede activarse con código por email.`;
+      }
+    }
     
     const newUser: User = {
       id: newId,
@@ -1969,8 +1996,9 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMemberships(prev => [newMembership, ...prev]);
     setPayments(prev => [newPayment, ...prev]);
 
-    // Persist real member, membership and payment to Supabase
-    if (isSupabaseConfigured && supabase) {
+    // Persist real member, membership and payment to Supabase.
+    // Solo con id Auth real: la FK profiles.id → auth.users.id rechaza ids locales.
+    if (isSupabaseConfigured && supabase && loginReady) {
       persistNewMember({
         gymId: currentGymId,
         user: newUser,
@@ -2005,7 +2033,9 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       membership: newMembership,
       payment: newPayment,
       tempPassword,
-      activationOtp
+      activationOtp,
+      loginReady,
+      loginHint
     };
   };
 
