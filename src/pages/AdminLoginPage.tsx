@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useGym } from '../context/GymContext';
-import { navigateToMode, navigateToPath } from '../lib/appMode';
 import {
   Dumbbell,
   ShieldCheck,
@@ -13,9 +12,6 @@ import {
   RefreshCw,
   Phone,
   MapPin,
-  User,
-  ChevronLeft,
-  Sparkles,
   Hash
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -68,15 +64,11 @@ export const AdminLoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       <header className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <button onClick={() => navigateToPath('/')} className="flex items-center gap-2.5">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-center">
+          <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-400 flex items-center justify-center text-slate-950 font-black shadow-md"><Dumbbell className="w-5 h-5 -rotate-12" /></div>
             <span className="font-extrabold text-white">FUERZA<span className="text-amber-400">FIT</span></span>
-            <span className="hidden sm:inline px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">PANEL GESTIÓN</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigateToPath('/')} className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1"><ChevronLeft className="w-4 h-4" /> Inicio</button>
-            <button onClick={() => navigateToMode('member')} className="hidden sm:flex px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 items-center gap-1"><User className="w-3.5 h-3.5" /> Soy socio</button>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">PANEL GESTIÓN</span>
           </div>
         </div>
       </header>
@@ -130,7 +122,7 @@ export const AdminLoginPage: React.FC = () => {
       </div>
 
       <div className="p-4 text-center text-[11px] text-slate-500">
-        <span>¿Sos socio? Entrá por </span><button onClick={()=>navigateToMode('member')} className="text-emerald-300 font-bold hover:underline">/socio</button><span> con tu DNI.</span>
+        <span>Acceso privado para dueños y staff.</span>
       </div>
     </div>
   );

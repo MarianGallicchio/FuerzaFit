@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useGym } from '../context/GymContext';
 import { PaymentMethod } from '../types';
 import { isSupabaseConfigured } from '../lib/supabase';
-import { navigateToPath } from '../lib/appMode';
+
 import {
   Dumbbell,
   Mail,
@@ -18,7 +18,6 @@ import {
   UserPlus,
   Hash,
   User,
-  ChevronLeft,
   IdCard
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -172,16 +171,13 @@ export const MemberLoginPage: React.FC<MemberLoginPageProps> = ({ initialPlanId 
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Top bar */}
+      {/* Top bar - sin Inicio */}
       <header className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <button onClick={() => navigateToPath('/')} className="flex items-center gap-2.5">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-center">
+          <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black shadow-md"><Dumbbell className="w-5 h-5 -rotate-12" /></div>
             <span className="font-extrabold text-white">FUERZA<span className="text-emerald-400">FIT</span></span>
-            <span className="hidden sm:inline px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">PORTAL SOCIOS</span>
-          </button>
-          <div className="flex items-center gap-2">
-            <button onClick={() => navigateToPath('/')} className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1"><ChevronLeft className="w-4 h-4" /> Inicio</button>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">PORTAL SOCIOS</span>
           </div>
         </div>
       </header>
