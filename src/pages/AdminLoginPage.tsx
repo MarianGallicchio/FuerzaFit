@@ -17,7 +17,21 @@ import {
 import { motion } from 'motion/react';
 
 export const AdminLoginPage: React.FC = () => {
-  const { loginWithPassword, registerGymOwnerAccount, loginAsAdmin } = useGym();
+  const { currentUser, loginWithPassword, registerGymOwnerAccount, loginAsAdmin } = useGym();
+
+  if (currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-slate-100">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 animate-pulse">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <p className="font-black text-white">¡Hola, {currentUser.name.split(' ')[0]}!</p>
+          <p className="text-xs text-slate-400">Entrando al panel...</p>
+        </div>
+      </div>
+    );
+  }
 
   const [adminView, setAdminView] = useState<'login' | 'create_gym'>('login');
   const [adminLoginEmail, setAdminLoginEmail] = useState('admin@fuerzafit.com');

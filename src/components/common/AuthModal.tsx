@@ -80,6 +80,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     initialMode === 'register_gym' ? 'create_gym' : 'login'
   );
 
+  // Auto-cierre cuando el login realmente pegó (fix trabado)
+  useEffect(() => {
+    if (isOpen && currentUser) {
+      const t = setTimeout(() => onClose(), 600);
+      return () => clearTimeout(t);
+    }
+  }, [isOpen, currentUser, onClose]);
+
   // Sync mode and plan if props change
   useEffect(() => {
     // BETA: rol bloqueado por link tiene prioridad sobre initialMode

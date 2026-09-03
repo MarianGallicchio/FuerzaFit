@@ -28,6 +28,7 @@ interface MemberLoginPageProps {
 
 export const MemberLoginPage: React.FC<MemberLoginPageProps> = ({ initialPlanId }) => {
   const {
+    currentUser,
     requestLoginOtp,
     verifyLoginOtp,
     requestPhoneOtp,
@@ -39,6 +40,21 @@ export const MemberLoginPage: React.FC<MemberLoginPageProps> = ({ initialPlanId 
     selectedBranchId,
     plans,
   } = useGym();
+
+  // Auto-redirect cuando el login realmente pegó (AppShell detecta currentUser)
+  if (currentUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-slate-100">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 animate-pulse">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <p className="font-black text-white">¡Listo, {currentUser.name.split(' ')[0]}!</p>
+          <p className="text-xs text-slate-400">Redirigiendo a tu panel...</p>
+        </div>
+      </div>
+    );
+  }
 
   const [memberView, setMemberView] = useState<'login_otp' | 'verify_otp' | 'login_password' | 'login_phone' | 'verify_phone' | 'register' | 'verify_register'>(
     'login_otp'
