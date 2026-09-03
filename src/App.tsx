@@ -7,7 +7,6 @@ import { SupabaseSetupNotice } from './components/common/SupabaseSetupNotice';
 import { isSupabaseConfigured } from './lib/supabase';
 import { getAppMode, getAppModeConfig, isRoleAllowedInMode, buildModeUrl } from './lib/appMode';
 import { ShieldCheck, User, LogOut, ArrowRight } from 'lucide-react';
-import { isDemoModeEnabled } from './lib/appMode';
 
 // Distinct Role Layouts & Landing Page
 import { LandingPage } from './components/common/LandingPage';
@@ -129,42 +128,17 @@ const AppShell: React.FC = () => {
           <AdminLoginPage />
         ) : appMode === 'member' ? (
           <MemberLoginPage initialPlanId={selectedPlanForReg} />
-        ) : isDemoModeEnabled() ? (
-          // Landing completa solo en dev/demo. En producción es privada.
-          showLanding ? (
-            <LandingPage
-              onOpenAuth={handleOpenAuth}
-              currentUser={currentUser}
-              onGoToDashboard={() => setShowLanding(false)}
-              onLogout={logout}
-            />
-          ) : (
-            <LandingPage
-              onOpenAuth={handleOpenAuth}
-              currentUser={currentUser}
-              onGoToDashboard={() => setShowLanding(false)}
-              onLogout={logout}
-            />
-          )
         ) : (
-          // Producción privada: / no muestra marketing. Solo accesos directos.
-          <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
-            <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-4 shadow-2xl">
-              <div className="w-12 h-12 mx-auto rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-black">FF</div>
-              <div>
-                <h1 className="text-lg font-black text-white">Acceso privado</h1>
-                <p className="text-xs text-slate-400 mt-1">Este software se vende por privado. Usá tu link directo:</p>
-              </div>
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <a href="/socio" className="py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black">Soy socio → /socio</a>
-                <a href="/admin" className="py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black">Soy dueño → /admin</a>
-              </div>
-              <p className="text-[11px] text-slate-500">La página inicial de demostración solo es visible para el dev.</p>
-            </div>
-          </div>
+          /* / → Presentación comercial del software (pública para venta) */
+          <LandingPage
+            onOpenAuth={handleOpenAuth}
+            currentUser={currentUser}
+            onGoToDashboard={() => setShowLanding(false)}
+            onLogout={logout}
+          />
         )
-      ) : showLanding && isDemoModeEnabled() ? (
-        /* Usuario logueado pero pidió ver landing — solo en dev */
+      ) : showLanding ? (
+        /* Usuario logueado pidió ver presentación */
         <LandingPage
           onOpenAuth={handleOpenAuth}
           currentUser={currentUser}

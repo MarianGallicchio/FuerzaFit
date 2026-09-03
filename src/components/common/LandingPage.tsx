@@ -135,52 +135,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </header>
 
       {/* -------------------------------------------------------------
-          HERO SECTION
+          HERO — PRESENTACIÓN COMERCIAL DEL SOFTWARE
           ------------------------------------------------------------- */}
-      <section className="relative overflow-hidden pt-16 pb-20 px-4 sm:px-6 lg:px-8 border-b border-slate-800/80">
+      <section className="relative overflow-hidden pt-14 pb-16 px-4 sm:px-6 lg:px-8 border-b border-slate-800/80">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-gradient-to-tr from-emerald-500/15 via-teal-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-5xl mx-auto text-center space-y-6 relative z-10">
           
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/90 border border-slate-700 text-xs text-slate-300 shadow-inner">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold text-emerald-400">Centros de Entrenamiento en Operación</span>
-            <span>• Sedes abiertas con molinetes QR activos</span>
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 shadow-inner">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="font-black tracking-wider uppercase">Software privado para gimnasios — Venta directa</span>
+            <span className="hidden sm:inline text-slate-400">• Demo en /admin y /socio</span>
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tight leading-none">
-            El entrenamiento y la gestión de tu gimnasio en una{' '}
-            <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">
-              experiencia de élite.
-            </span>
+            El sistema operativo de tu gimnasio. <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200 bg-clip-text text-transparent">Sin Excel. Sin mora.</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
-            Ingreso ágil con código QR digital, rutinas interactivas por objetivo, cobros automatizados con Mercado Pago,
-            reserva de clases en vivo y control de aforo en tiempo real.
+          <p className="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto leading-relaxed">
+            <strong className="text-white">FuerzaFit</strong> es el software privado que usan dueños y staff para cobrar, controlar accesos por <strong className="text-emerald-400">DNI en 2s</strong> y entrenar socios — sin mostrar precios ni admin al socio. Instalación en 24h, datos aislados por gimnasio (Supabase RLS).
           </p>
 
-          {/* Hero CTAs — páginas separadas */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-bold">
+            <span className="px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-300">✓ DNI + QR de alta</span>
+            <span className="px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-300">✓ Caja con descuentos auditados</span>
+            <span className="px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-300">✓ Rutinas y clases con cupo</span>
+            <span className="px-2.5 py-1 rounded-full bg-slate-900 border border-slate-700 text-slate-300">✓ Reportes retención & MRR real</span>
+          </div>
+
+          {/* Hero CTAs — venta */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
             <a
-              id="btn-hero-join"
-              href="/socio"
-              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/socio'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all active:scale-95"
+              href="/admin"
+              onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/admin'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 active:scale-95"
             >
-              <span>Comenzar Ahora — Quiero Ser Socio</span>
+              <span>Ver demo Dueño → /admin</span>
               <ArrowRight className="w-4 h-4" />
             </a>
-
             <a
-              id="btn-hero-login"
               href="/socio"
               onClick={(e) => { e.preventDefault(); window.history.pushState({}, '', '/socio'); window.dispatchEvent(new PopStateEvent('popstate')); window.scrollTo(0,0); }}
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all"
+              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 active:scale-95"
             >
-              <span>Ingresar como Socio</span>
+              <span>Ver demo Socio → /socio</span>
+              <ArrowRight className="w-4 h-4" />
             </a>
           </div>
+          <p className="text-[11px] text-slate-500">Venta privada por WhatsApp. Escribí <strong className="text-slate-300">DEMO</strong> y te habilito tu gimnasio de prueba en 15 min.</p>
 
           {/* Live System Pillars Showcase Cards */}
           <div id="servicios" className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-12 text-left">
