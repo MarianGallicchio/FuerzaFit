@@ -24,11 +24,12 @@ function normalizeMode(raw: string | null | undefined): AppMode | null {
 
 export function getAppMode(): AppMode {
   // 1. Path dedicado tiene máxima prioridad: /admin y /socio son páginas distintas
+  // Soporta tanto local (/admin) como GitHub Pages (/FuerzaFit/admin) y subrutas (/admin/login)
   try {
     const path = window.location.pathname.toLowerCase();
-    // soporta /admin, /admin/, /admin/login, /panel, /dueno, /socio, /socios, /member, /login, /ingreso
-    if (/^\/(admin|panel|dueno|dueño|staff)(\/|$)/.test(path)) return 'admin';
-    if (/^\/(socio|socios|member|members|atleta|login|ingreso)(\/|$)/.test(path)) return 'member';
+    // busca segmento /admin o /socio en cualquier posición (para base /FuerzaFit/)
+    if (/(^|\/)(admin|panel|dueno|dueño|staff)(\/|$|\?|#)/.test(path)) return 'admin';
+    if (/(^|\/)(socio|socios|member|members|atleta|login|ingreso)(\/|$|\?|#)/.test(path)) return 'member';
   } catch {}
   // 2. Query param (compatibilidad con links antiguos ?app=admin)
   try {
@@ -108,15 +109,23 @@ export function isRoleAllowedInMode(role: string | undefined, mode: AppMode): bo
   return !!role && cfg.allowedRoles.includes(role);
 }
 
+function getBasePrefix(): string {
+  try {
+    const p = window.location.pathname.toLowerCase();
+    if (p.startsWith('/fuerzafit/') || p === '/fuerzafit') return '/FuerzaFit';
+  } catch {}
+  return '';
+}
+
 export function buildModeUrl(mode: Exclude<AppMode, 'full'>): string {
-  // Ahora usa rutas limpias /admin y /socio (sin reload innecesario si ya estamos ahí)
+  // Usa rutas limpias /admin y /socio respetando base /FuerzaFit/ en Pages
   try {
     const url = new URL(window.location.href);
-    // limpiar query antigua para no duplicar
     url.searchParams.delete('app');
     url.searchParams.delete('mode');
     url.hash = '';
-    url.pathname = mode === 'admin' ? '/admin' : '/socio';
+    const base = getBasePrefix();
+    url.pathname = `${base}${mode === 'admin' ? '/admin' : '/socio'}`;
     return url.toString();
   } catch {
     return mode === 'admin' ? '/admin' : '/socio';
@@ -126,10 +135,10 @@ export function buildModeUrl(mode: Exclude<AppMode, 'full'>): string {
 // Helper para navegación SPA sin reload (pushState)
 export function navigateToMode(mode: Exclude<AppMode, 'full'>): void {
   try {
-    const target = mode === 'admin' ? '/admin' : '/socio';
-    if (window.location.pathname !== target) {
+    const base = getBasePrefix();
+    const target = `${base}${mode === 'admin' ? '/admin' : '/socio'}`;
+    if (window.location.pathname.toLowerCase() !== target.toLowerCase()) {
       window.history.pushState({}, '', target);
-      // disparar popstate para que AppShell reaccione
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
   } catch {
@@ -139,8 +148,17 @@ export function navigateToMode(mode: Exclude<AppMode, 'full'>): void {
 
 export function navigateToPath(path: string): void {
   try {
-    if (window.location.pathname !== path) {
-      window.history.pushState({}, '', path);
+    const base = getBasePrefix();
+    // si path es / o /admin /socio y estamos en Pages, prefijar base
+    let target = path;
+    if (base && path.startsWith('/') && !path.toLowerCase().startsWith(base.toLowerCase())) {
+      // solo prefijar para rutas internas conocidas
+      if (['/admin','/socio','/','/login','/ingreso'].some(r => path === r || path.startsWith(r + '/') || path.startsWith(r + '?'))) {
+        target = `${base}${path}`;
+      }
+    }
+    if (window.location.pathname !== target) {
+      window.history.pushState({}, '', target);
       window.dispatchEvent(new PopStateEvent('popstate'));
     }
   } catch {
