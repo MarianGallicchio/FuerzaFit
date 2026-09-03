@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useGym } from '../../context/GymContext';
 import { isSuperAdmin } from '../../lib/superadmin';
-import { LogOut, Crown, Building2, CreditCard, LifeBuoy, Activity, Settings, Megaphone, ShieldAlert, LayoutDashboard } from 'lucide-react';
+import { LogOut, Crown, Building2, CreditCard, LifeBuoy, Activity, Settings, Megaphone, ShieldAlert, LayoutDashboard, Zap } from 'lucide-react';
 import { MaestroDashboard } from '../maestro/MaestroDashboard';
 import { MaestroTenantsView } from '../maestro/MaestroTenantsView';
 import { MaestroBillingView } from '../maestro/MaestroBillingView';
@@ -9,21 +9,77 @@ import { MaestroSupportView } from '../maestro/MaestroSupportView';
 import { MaestroOpsView } from '../maestro/MaestroOpsView';
 import { MaestroFlagsView } from '../maestro/MaestroFlagsView';
 import { MaestroAnnouncementsView } from '../maestro/MaestroAnnouncementsView';
+import { MaestroAutomationsView } from '../maestro/MaestroAutomationsView';
 
-type Tab = 'dashboard' | 'tenants' | 'billing' | 'support' | 'ops' | 'flags' | 'announcements';
+type Tab = 'dashboard' | 'tenants' | 'billing' | 'support' | 'ops' | 'flags' | 'announcements' | 'automations';
 
 export const SuperAdminLayout: React.FC = () => {
   const { currentUser, logout } = useGym();
   const [tab, setTab] = useState<Tab>('dashboard');
+  const [masterInput, setMasterInput] = useState('');
+  const [masterError, setMasterError] = useState('');
+  const [unlocked, setUnlocked] = useState(() => {
+    try { return sessionStorage.getItem('fuerzafit_maestro_unlocked') === '1'; } catch { return false; }
+  });
+
+  // Página totalmente distinta: noindex + estilo aislado
+  React.useEffect(() => {
+    document.title = 'FuerzaFit — Zona Maestra (Privado)';
+    const meta = document.createElement('meta');
+    meta.name = 'robots';
+    meta.content = 'noindex, nofollow, noarchive';
+    document.head.appendChild(meta);
+    return () => { try { document.head.removeChild(meta); } catch {} };
+  }, []);
+
+  const MAESTRO_KEY = (import.meta as any).env?.VITE_MAESTRO_KEY || 'FuerzaMaestro2026!';
+
+  const handleUnlock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (masterInput === MAESTRO_KEY) {
+      try { sessionStorage.setItem('fuerzafit_maestro_unlocked', '1'); } catch {}
+      setUnlocked(true);
+      setMasterError('');
+    } else {
+      setMasterError('Clave maestra incorrecta. Solo dueño del software.');
+    }
+  };
 
   if (!isSuperAdmin(currentUser)) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 text-slate-100">
-        <div className="max-w-md bg-slate-900 border border-rose-500/30 rounded-3xl p-8 text-center space-y-3">
+      <div className="min-h-screen bg-[#05070a] flex items-center justify-center p-6 text-slate-100">
+        <div className="max-w-md w-full bg-slate-900 border border-rose-500/30 rounded-3xl p-8 text-center space-y-3 shadow-2xl">
           <ShieldAlert className="w-8 h-8 text-rose-400 mx-auto" />
-          <h1 className="font-black text-white">Zona Maestra — Solo SuperAdmin</h1>
-          <p className="text-xs text-slate-400">Tu rol es {currentUser?.role}. Pedí acceso maestro.</p>
+          <h1 className="font-black text-white">Zona Maestra — Acceso denegado</h1>
+          <p className="text-xs text-slate-400">Esta página es totalmente privada. Solo dueño del software o empleado autorizado.</p>
+          <p className="text-[11px] text-slate-500">Tu rol actual: <span className="font-mono text-slate-300">{currentUser?.role || 'sin sesión'}</span></p>
+          <p className="text-[11px] text-slate-500">Si sos el dueño, iniciá sesión como superadmin en <span className="font-mono">/maestro</span>.</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen bg-[#05070a] text-slate-100 flex items-center justify-center p-6">
+        <form onSubmit={handleUnlock} className="w-full max-w-sm bg-slate-900 border border-violet-500/30 rounded-3xl p-6 shadow-2xl space-y-4">
+          <div className="text-center space-y-2">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-violet-600 flex items-center justify-center font-black text-white">M</div>
+            <h1 className="font-black text-white">Zona Maestra — Clave privada</h1>
+            <p className="text-xs text-slate-400">Solo dueño del software. Ingresá la clave maestra (VITE_MAESTRO_KEY).</p>
+          </div>
+          <input
+            type="password"
+            value={masterInput}
+            onChange={e=>setMasterInput(e.target.value)}
+            placeholder="Clave maestra"
+            className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:border-violet-500 focus:outline-none"
+            autoFocus
+          />
+          {masterError && <p className="text-xs text-rose-400">{masterError}</p>}
+          <button type="submit" className="w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-black">Desbloquear</button>
+          <p className="text-[11px] text-slate-500 text-center">Se guarda solo en esta sesión. No queda en el repo.</p>
+        </form>
       </div>
     );
   }
@@ -36,6 +92,7 @@ export const SuperAdminLayout: React.FC = () => {
     { id: 'ops', label: 'Salud', icon: <Activity className="w-4 h-4" /> },
     { id: 'flags', label: 'Módulos', icon: <Settings className="w-4 h-4" /> },
     { id: 'announcements', label: 'Anuncios', icon: <Megaphone className="w-4 h-4" /> },
+    { id: 'automations', label: 'Automatizaciones', icon: <Zap className="w-4 h-4" /> },
   ];
 
   return (
@@ -83,6 +140,7 @@ export const SuperAdminLayout: React.FC = () => {
           {tab==='ops' && <MaestroOpsView />}
           {tab==='flags' && <MaestroFlagsView />}
           {tab==='announcements' && <MaestroAnnouncementsView />}
+          {tab==='automations' && <MaestroAutomationsView />}
         </main>
       </div>
     </div>
