@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { useGym } from '../../context/GymContext';
 import { isSuperAdmin } from '../../lib/superadmin';
-import { LogOut, Crown, Building2, CreditCard, LifeBuoy, Activity, Settings, Megaphone, ShieldAlert } from 'lucide-react';
-import { SuperTenantsView } from './SuperTenantsView';
-import { SuperBillingView } from './SuperBillingView';
-import { SuperSupportView } from './SuperSupportView';
-import { SuperOpsView } from './SuperOpsView';
-import { SuperConfigView } from './SuperConfigView';
+import { LogOut, Crown, Building2, CreditCard, LifeBuoy, Activity, Settings, Megaphone, ShieldAlert, LayoutDashboard } from 'lucide-react';
+import { MaestroDashboard } from '../maestro/MaestroDashboard';
+import { MaestroTenantsView } from '../maestro/MaestroTenantsView';
+import { MaestroBillingView } from '../maestro/MaestroBillingView';
+import { MaestroSupportView } from '../maestro/MaestroSupportView';
+import { MaestroOpsView } from '../maestro/MaestroOpsView';
+import { MaestroFlagsView } from '../maestro/MaestroFlagsView';
+import { MaestroAnnouncementsView } from '../maestro/MaestroAnnouncementsView';
 
-type Tab = 'tenants' | 'billing' | 'support' | 'ops' | 'config';
+type Tab = 'dashboard' | 'tenants' | 'billing' | 'support' | 'ops' | 'flags' | 'announcements';
 
 export const SuperAdminLayout: React.FC = () => {
   const { currentUser, logout } = useGym();
-  const [tab, setTab] = useState<Tab>('tenants');
+  const [tab, setTab] = useState<Tab>('dashboard');
 
   if (!isSuperAdmin(currentUser)) {
     return (
@@ -27,11 +29,13 @@ export const SuperAdminLayout: React.FC = () => {
   }
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+    { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: 'tenants', label: 'Gimnasios', icon: <Building2 className="w-4 h-4" /> },
     { id: 'billing', label: 'Facturación', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'support', label: 'Soporte', icon: <LifeBuoy className="w-4 h-4" /> },
-    { id: 'ops', label: 'Monitoreo', icon: <Activity className="w-4 h-4" /> },
-    { id: 'config', label: 'Sistema', icon: <Settings className="w-4 h-4" /> },
+    { id: 'ops', label: 'Salud', icon: <Activity className="w-4 h-4" /> },
+    { id: 'flags', label: 'Módulos', icon: <Settings className="w-4 h-4" /> },
+    { id: 'announcements', label: 'Anuncios', icon: <Megaphone className="w-4 h-4" /> },
   ];
 
   return (
@@ -72,11 +76,13 @@ export const SuperAdminLayout: React.FC = () => {
         </header>
 
         <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-[radial-gradient(ellipse_at_top,_rgba(124,58,237,0.12),_transparent_60%)]">
-          {tab==='tenants' && <SuperTenantsView />}
-          {tab==='billing' && <SuperBillingView />}
-          {tab==='support' && <SuperSupportView />}
-          {tab==='ops' && <SuperOpsView />}
-          {tab==='config' && <SuperConfigView />}
+          {tab==='dashboard' && <MaestroDashboard />}
+          {tab==='tenants' && <MaestroTenantsView />}
+          {tab==='billing' && <MaestroBillingView />}
+          {tab==='support' && <MaestroSupportView />}
+          {tab==='ops' && <MaestroOpsView />}
+          {tab==='flags' && <MaestroFlagsView />}
+          {tab==='announcements' && <MaestroAnnouncementsView />}
         </main>
       </div>
     </div>

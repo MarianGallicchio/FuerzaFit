@@ -2,17 +2,18 @@
 
 Plataforma integral para gimnasios y estudios de entrenamiento (LATAM): roles de **Dueño/Admin** y **Socio**, rutinas interactivas, reservas de clases, control de acceso por **DNI + QR de alta**, caja y reportes.
 
-## 🌐 Accesos de la beta (mismo deploy, páginas separadas)
+## 🌐 Accesos (mismo deploy, páginas separadas)
 
 | Acceso | URL principal | Fallback legacy | Quién entra |
 |---|---|---|---|
+| Maestro (SuperAdmin) | `/maestro` | `/superadmin` o `/?app=maestro` | superadmin |
 | Dueño / Staff | `/admin` | `/?app=admin` | admin, reception, trainer |
 | Socios | `/socio` | `/?app=socio` | member |
-| Landing unificada | `/` | — | público |
+| Landing / Venta | `/` | — | público |
 
-Ejemplo local: `http://localhost:3000/admin` y `http://localhost:3000/socio` (también `http://localhost:3000/?app=admin`).
+Ejemplo local: `http://localhost:3000/maestro` (maestro), `http://localhost:3000/admin` y `http://localhost:3000/socio`.
 
-Flujo de acceso: el socio se da de alta con **DNI obligatorio** (se genera su QR de alta) y el ingreso diario se valida por **DNI en recepción**. El QR es solo credencial del primer día.
+Flujo de acceso: el socio se da de alta con **DNI obligatorio** (se genera su QR de alta) y el ingreso diario se valida por **DNI en recepción**. El QR es solo credencial del primer día. La Zona Maestra (`/maestro`) es solo para `profiles.role='superadmin'` con guard `is_superadmin()`.
 
 ## ▶️ Correr local
 
@@ -41,7 +42,8 @@ Probá descuento 1ª cuota: Alta socio → Descuento `%` o `$` + motivo → ver 
 1. Correr `supabase_schema.sql` en SQL Editor
 2. Correr `supabase_beta_hardening.sql` (cierra fugas multi-tenant + DNI único)
 3. Correr `supabase_migration_discount.sql` (agrega `discount_ars` / `discount_reason` para promos 1ª cuota)
-4. Sin Supabase configurado, la app corre en modo demo local.
+4. Correr `supabase_superadmin.sql` (Zona Maestra: `tenant_subscriptions`, `tenant_invoices`, `support_tickets`, `audit_logs`, `feature_flags`, etc.)
+5. Sin Supabase configurado, la app corre en modo demo local (Maestro con datos mock).
 
 ## 🛠️ Scripts
 
