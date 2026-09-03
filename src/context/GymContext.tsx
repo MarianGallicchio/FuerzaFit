@@ -35,6 +35,7 @@ import {
   persistNewClass
 } from '../services/supabaseService';
 import { isDemoModeEnabled } from '../lib/appMode';
+import { normalizePhoneE164 } from '../lib/phone';
 import {
   INITIAL_BRANCHES,
   INITIAL_USERS,
@@ -99,6 +100,8 @@ interface GymContextType {
   loginWithEmail: (email: string, role?: UserRole) => Promise<boolean>;
   requestLoginOtp: (email: string) => Promise<{ success: boolean; message: string; otpCode?: string; userExists?: boolean; userName?: string }>;
   verifyLoginOtp: (email: string, otp: string) => Promise<{ success: boolean; message: string; user?: User }>;
+  requestPhoneOtp: (phone: string) => Promise<{ success: boolean; message: string; phoneE164?: string }>;
+  verifyPhoneOtp: (phoneE164: string, otp: string) => Promise<{ success: boolean; message: string; user?: User }>;
   loginWithPassword: (email: string, password: string) => Promise<{ success: boolean; message: string; user?: User }>;
   registerMemberSelf: (data: {
     name: string;
@@ -626,6 +629,170 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         success: false,
         message: err.message || 'Error al verificar código OTP.'
       };
+    }
+  };
+
+        // Errores de Auth traducidos a lenguaje del gym
+  const friendlyAuthError = (raw: string): string => {
+    const msg = (raw || '').toLowerCase();
+    if (msg.includes('already registered') || msg.includes('already exists') || msg.includes('user already')) {
+      return 'Ese email ya tiene cuenta. Iniciá sesión o usá otro correo.';
+    }
+    if (msg.includes('at least 6 characters') || msg.includes('password')) {
+      return 'La contraseña debe tener al menos 6 caracteres.';
+    }
+    if (msg.includes('rate limit') || msg.includes('too many') || msg.includes('email rate')) {
+      return 'Límite de envíos de Supabase: esperá unos minutos y reintentá.';
+    }
+    if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+      return 'Falta confirmar el email: revisá tu correo (y spam) y abrí el link.';
+    }
+    if (msg.includes('invalid login credentials')) {
+      return 'Email o contraseña incorrectos.';
+    }
+    if (msg.includes('signup is disabled') || msg.includes('signups')) {
+      return 'El registro está deshabilitado en Supabase. Habilitá "Allow new users" en Auth.';
+    }
+    return raw || 'Error de autenticación.';
+  };
+
+  // 2b. Login con teléfono + código SMS (Supabase Auth nativo, requiere
+  // proveedor SMS configurado en el proyecto: Auth > Sign In/Up > Phone).
+  const mapPhoneError = (raw: string): string => {
+    const msg = (raw || '').toLowerCase();
+    if (msg.includes('unsupported phone provider') || msg.includes('phone signups are disabled') || msg.includes('phone provider is not enabled')) {
+      return 'Tu gimnasio aún no tiene SMS activado. Pedí en recepción que lo habiliten o ingresá con código por email.';
+    }
+    if (msg.includes('rate limit') || msg.includes('too many')) {
+      return 'Demasiados intentos por SMS. Esperá unos minutos e intentá de nuevo.';
+    }
+    if (msg.includes('invalid phone') || msg.includes('phone number')) {
+      return 'Ese número no tiene formato válido. Revisalo (ej: 11 2333 3343).';
+    }
+    if (msg.includes('expired') || msg.includes('invalid token') || msg.includes('incorrect')) {
+      return 'El código SMS es incorrecto o venció. Pedí uno nuevo.';
+    }
+    return raw || 'Error al enviar el SMS.';
+  };
+
+  const requestPhoneOtp = async (phone: string) => {
+    const e164 = normalizePhoneE164(phone);
+    setIsAuthLoading(true);
+    setAuthError(null);
+
+    if (!e164) {
+      setIsAuthLoading(false);
+      return {
+        success: false,
+        message: 'Ingresá un número válido de 10 dígitos con código de área (ej: 11 2333 3343).'
+      };
+    }
+
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase.auth.signInWithOtp({ phone: e164 });
+        setIsAuthLoading(false);
+        if (!error) {
+          return {
+            success: true,
+            message: `Te enviamos un código por SMS al ${e164}.`,
+            phoneE164: e164
+          };
+        }
+        const friendly = mapPhoneError(error.message);
+        setAuthError(friendly);
+        return { success: false, message: friendly, phoneE164: e164 };
+      }
+
+      setIsAuthLoading(false);
+      return {
+        success: false,
+        message: 'El ingreso por SMS necesita Supabase con proveedor de SMS configurado. Usá el código por email.',
+        phoneE164: e164
+      };
+    } catch (err: any) {
+      setIsAuthLoading(false);
+      const msg = mapPhoneError(err.message || '');
+      setAuthError(msg);
+      return { success: false, message: msg, phoneE164: e164 };
+    }
+  };
+
+  const verifyPhoneOtp = async (phoneE164: string, otp: string) => {
+    const cleanOtp = (otp || '').trim();
+    setIsAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { data, error } = await supabase.auth.verifyOtp({
+          phone: phoneE164,
+          token: cleanOtp,
+          type: 'sms'
+        });
+
+        if (!error && data.user) {
+          const authUser = data.user;
+          const digitsOnly = phoneE164.replace(/[^0-9]/g, '');
+          let userObj = users.find(u =>
+            u.id === authUser.id ||
+            (u.phone && u.phone.replace(/[^0-9]/g, '').endsWith(digitsOnly.slice(-10)))
+          );
+          if (!userObj) {
+            // Socio nuevo por teléfono: alta mínima + membresía inicial
+            const newId = authUser.id;
+            const starterPlan = plans[0] || INITIAL_PLANS[0];
+            userObj = {
+              id: newId,
+              gymId: currentGymId,
+              name: (authUser.user_metadata?.name as string) || `Socio ${digitsOnly.slice(-4)}`,
+              email: authUser.email || `${digitsOnly.slice(-10)}@telefono.fuerzafit`,
+              phone: phoneE164,
+              role: 'member',
+              avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
+              branchId: selectedBranchId,
+              createdAt: new Date().toISOString(),
+              isEmailVerified: false
+            };
+            const newMembership: Membership = {
+              id: `mem-${Date.now()}`,
+              gymId: currentGymId,
+              userId: newId,
+              planId: starterPlan.id,
+              status: 'active',
+              startDate: new Date().toISOString(),
+              endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+              autoRenew: true,
+              qrToken: `FF-QR-${newId.slice(-5).toUpperCase()}-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
+              branchId: selectedBranchId
+            };
+            setUsers(prev => [userObj!, ...prev]);
+            setMemberships(prev => [newMembership, ...prev]);
+          }
+          setCurrentUserId(userObj.id);
+          if (userObj.branchId) setSelectedBranchId(userObj.branchId);
+          setIsAuthLoading(false);
+          return { success: true, message: `¡Bienvenido/a, ${userObj.name}!`, user: userObj };
+        }
+
+        if (error) {
+          const friendly = mapPhoneError(error.message);
+          setIsAuthLoading(false);
+          setAuthError(friendly);
+          return { success: false, message: friendly };
+        }
+      }
+
+      setIsAuthLoading(false);
+      return {
+        success: false,
+        message: 'El ingreso por SMS necesita Supabase con proveedor de SMS configurado. Usá el código por email.'
+      };
+    } catch (err: any) {
+      setIsAuthLoading(false);
+      const msg = mapPhoneError(err.message || '');
+      setAuthError(msg);
+      return { success: false, message: msg };
     }
   };
 
@@ -1277,12 +1444,12 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAuthError(null);
     try {
       const cleanEmail = data.email.trim().toLowerCase();
-      const adminId = `usr-admin-${Date.now().toString().slice(-4)}`;
 
-      // Si Supabase está disponible, registrar usuario y tenant en Supabase
+      // Si Supabase está disponible, registrar usuario y tenant en Supabase.
+      // BETA FIX: si algo falla acá se devuelve el error REAL (nunca un gym
+      // fantasma local): el fallback local solo corre sin Supabase.
       if (isSupabaseConfigured && supabase) {
-        let authUserId = adminId;
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: cleanEmail,
           password: data.password || 'admin123',
           options: {
@@ -1294,9 +1461,21 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
 
-        if (!authError && authData.user) {
-          authUserId = authData.user.id;
+        if (signUpError) {
+          setIsAuthLoading(false);
+          const msg = signUpError.message || 'Error al crear el usuario.';
+          setAuthError(msg);
+          return { success: false, message: friendlyAuthError(msg) };
         }
+
+        if (!authData.user) {
+          setIsAuthLoading(false);
+          const msg = 'Revisá tu correo y confirmá la cuenta para terminar el alta del gimnasio.';
+          setAuthError(msg);
+          return { success: false, message: msg };
+        }
+
+        const authUserId = authData.user.id;
 
         const gymRes = await createGymTenant({
           name: data.gymName.trim(),
@@ -1309,7 +1488,17 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           initialBranchAddress: data.branchAddress || 'Av. Principal 1234'
         });
 
-        if (gymRes.success && gymRes.gym) {
+        if (!gymRes.success || !gymRes.gym) {
+          setIsAuthLoading(false);
+          const msg = gymRes.error?.includes('row-level security')
+            ? 'Supabase rechazó la creación (RLS). Corré supabase_beta_onboarding.sql en el SQL Editor y reintentá.'
+            : gymRes.error || 'Error al crear el gimnasio en Supabase.';
+          setAuthError(msg);
+          return { success: false, message: msg };
+        }
+
+        // Éxito real en Supabase (gymRes ya validado arriba)
+        {
           setCurrentGymId(gymRes.gym.id);
           const newAdminUser: User = {
             id: authUserId,
@@ -1332,7 +1521,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // Modo local / Fallback
+      // Modo local / Fallback (solo sin Supabase)
+      const adminId = `usr-admin-${Date.now().toString().slice(-4)}`;
       const newGymId = `gym-${Date.now().toString().slice(-6)}`;
       const branchId = `branch-${newGymId}-1`;
       const branchCode = `GYM-${data.slug.toUpperCase().slice(0, 4)}-${new Date().getFullYear()}`;
@@ -2223,6 +2413,8 @@ export const GymProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loginWithEmail,
         requestLoginOtp,
         verifyLoginOtp,
+        requestPhoneOtp,
+        verifyPhoneOtp,
         loginWithPassword,
         registerMemberSelf,
         confirmRegistration,

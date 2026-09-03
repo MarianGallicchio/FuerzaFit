@@ -52,6 +52,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     switchUser,
     requestLoginOtp,
     verifyLoginOtp,
+    requestPhoneOtp,
+    verifyPhoneOtp,
     loginWithPassword,
     registerMemberSelf,
     confirmRegistration,
@@ -68,8 +70,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     initialMode === 'admin' || initialMode === 'register_gym' ? 'admin' : 'member'
   );
 
-  // Member sub-views: 'login_otp' | 'verify_otp' | 'login_password' | 'register' | 'verify_register'
-  const [memberView, setMemberView] = useState<'login_otp' | 'verify_otp' | 'login_password' | 'register' | 'verify_register'>(
+  // Member sub-views: 'login_otp' | 'verify_otp' | 'login_password' | 'login_phone' | 'verify_phone' | 'register' | 'verify_register'
+  const [memberView, setMemberView] = useState<'login_otp' | 'verify_otp' | 'login_password' | 'login_phone' | 'verify_phone' | 'register' | 'verify_register'>(
     initialMode === 'register' ? 'register' : 'login_otp'
   );
 
@@ -99,7 +101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setMemberView('register');
     } else {
       setRoleTab('member');
-      if (memberView !== 'verify_otp' && memberView !== 'verify_register') {
+      if (memberView !== 'verify_otp' && memberView !== 'verify_register' && memberView !== 'verify_phone') {
         setMemberView('login_otp');
       }
     }
@@ -112,6 +114,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [resendTimer, setResendTimer] = useState(45);
   const [feedbackMessage, setFeedbackMessage] = useState<{ text: string; type: 'error' | 'success' | 'info' } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Member Phone OTP state (ingreso con número + código SMS)
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneE164, setPhoneE164] = useState('');
 
   // Member Register form state
   const [regName, setRegName] = useState('');
@@ -186,7 +192,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Timer countdown for OTP resend
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if ((memberView === 'verify_otp' || memberView === 'verify_register') && resendTimer > 0) {
+    if ((memberView === 'verify_otp' || memberView === 'verify_register' || memberView === 'verify_phone') && resendTimer > 0) {
       interval = setInterval(() => {
         setResendTimer(prev => prev - 1);
       }, 1000);
@@ -261,6 +267,54 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     setIsLoading(true);
     const res = await verifyLoginOtp(email, fullCode);
+    setIsLoading(false);
+    if (res.success) {
+      setFeedbackMessage({ text: res.message, type: 'success' });
+      setTimeout(() => {
+        onClose();
+      }, 500);
+    } else {
+      setFeedbackMessage({ text: res.message, type: 'error' });
+    }
+  };
+
+  // 2b. Login con teléfono + SMS (requiere proveedor SMS en Supabase)
+  const handleRequestPhoneOtp = async () => {
+    if (!phoneNumber.trim()) {
+      setFeedbackMessage({ text: 'Ingresá tu número de teléfono.', type: 'error' });
+      return;
+    }
+
+    setIsLoading(true);
+    setFeedbackMessage(null);
+
+    const res = await requestPhoneOtp(phoneNumber.trim());
+    setIsLoading(false);
+    if (res.success && res.phoneE164) {
+      setPhoneE164(res.phoneE164);
+      setMemberView('verify_phone');
+      setResendTimer(45);
+      setOtpCode(['', '', '', '', '', '']);
+      setFeedbackMessage({ text: res.message, type: 'success' });
+    } else {
+      if (res.phoneE164) setPhoneE164(res.phoneE164);
+      setFeedbackMessage({ text: res.message, type: 'error' });
+    }
+  };
+
+  const handleVerifyPhoneOtp = async (codeOverride?: string) => {
+    const fullCode = codeOverride || otpCode.join('');
+    if (fullCode.length < 6) {
+      setFeedbackMessage({ text: 'Por favor ingresá los 6 dígitos del código SMS.', type: 'error' });
+      return;
+    }
+    if (!phoneE164) {
+      setFeedbackMessage({ text: 'Pedí primero el código SMS.', type: 'error' });
+      return;
+    }
+
+    setIsLoading(true);
+    const res = await verifyPhoneOtp(phoneE164, fullCode);
     setIsLoading(false);
     if (res.success) {
       setFeedbackMessage({ text: res.message, type: 'success' });
@@ -525,7 +579,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setFeedbackMessage(null);
                 }}
                 className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                  memberView === 'login_otp' || memberView === 'verify_otp' || memberView === 'login_password'
+                  memberView === 'login_otp' || memberView === 'verify_otp' || memberView === 'login_password' || memberView === 'login_phone' || memberView === 'verify_phone'
                     ? 'bg-slate-750 text-white shadow-sm font-bold'
                     : 'text-slate-400 hover:text-white'
                 }`}
@@ -664,6 +718,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <span>Iniciar con contraseña</span>
                   </button>
                 </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                  <span className="flex-1 h-px bg-slate-800" />
+                  <span>o</span>
+                  <span className="flex-1 h-px bg-slate-800" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMemberView('login_phone');
+                    setFeedbackMessage(null);
+                  }}
+                  className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-750 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all"
+                >
+                  <Phone className="w-4 h-4 text-emerald-400" />
+                  <span>Ingresar con teléfono y SMS</span>
+                </button>
               </div>
             )}
 
@@ -733,6 +805,130 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     className="w-full py-1.5 text-slate-400 hover:text-white text-center text-[11px] transition-colors"
                   >
                     ← Cambiar correo electrónico
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 2b: MEMBER LOGIN VIA PHONE (SMS OTP) */}
+            {memberView === 'login_phone' && (
+              <div className="space-y-4 text-xs">
+                <div className="space-y-1">
+                  <label className="block text-slate-300 font-bold">Número de teléfono</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      placeholder="Ej: 11 2333 3343"
+                      value={phoneNumber}
+                      onChange={e => setPhoneNumber(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleRequestPhoneOtp();
+                      }}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-white placeholder-slate-500 focus:border-emerald-400 focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Con código de área, sin 0 ni 15. Te llega un código de 6 dígitos por SMS.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleRequestPhoneOtp()}
+                  disabled={isLoading}
+                  className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Enviando SMS...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Enviar código por SMS</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMemberView('login_otp')}
+                  className="w-full py-1.5 text-slate-400 hover:text-white text-center text-[11px] transition-colors"
+                >
+                  ← Volver al ingreso con email
+                </button>
+              </div>
+            )}
+
+            {/* VIEW 2c: VERIFY PHONE OTP CODE */}
+            {memberView === 'verify_phone' && (
+              <div className="space-y-4 text-xs">
+                <div className="text-center space-y-1">
+                  <h3 className="text-sm font-black text-white">Ingresá el código del SMS</h3>
+                  <p className="text-slate-400 text-[11px]">
+                    Enviado al <span className="font-bold text-slate-200">{phoneE164 || phoneNumber}</span>
+                  </p>
+                </div>
+
+                <div className="flex justify-center gap-2 sm:gap-2.5 py-1">
+                  {otpCode.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      id={`otp-input-${idx}`}
+                      type="text"
+                      maxLength={1}
+                      value={digit}
+                      onChange={e => handleOtpDigitChange(idx, e.target.value)}
+                      onKeyDown={e => handleOtpKeyDown(idx, e)}
+                      className="w-10 h-12 sm:w-12 sm:h-14 text-center text-lg sm:text-xl font-black rounded-2xl bg-slate-800/90 border border-slate-700 text-white focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none transition-all"
+                    />
+                  ))}
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                  <span>¿No recibiste el SMS?</span>
+                  {resendTimer > 0 ? (
+                    <span>Reenviar en <span className="text-emerald-400 font-bold">{resendTimer}s</span></span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleRequestPhoneOtp()}
+                      className="text-emerald-400 hover:underline font-bold"
+                    >
+                      Reenviar código
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyPhoneOtp()}
+                    disabled={isLoading || otpCode.join('').length < 6}
+                    className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.99] disabled:opacity-50 text-slate-950 font-extrabold text-xs shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all"
+                  >
+                    {isLoading ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Verificando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Verificar e Ingresar al Panel de Socio</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMemberView('login_phone')}
+                    className="w-full py-1.5 text-slate-400 hover:text-white text-center text-[11px] transition-colors"
+                  >
+                    ← Cambiar número de teléfono
                   </button>
                 </div>
               </div>
