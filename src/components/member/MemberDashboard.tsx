@@ -1,7 +1,7 @@
 import React from 'react';
 import { useGym } from '../../context/GymContext';
 import {
-  QrCode,
+  IdCard,
   Dumbbell,
   Calendar,
   TrendingUp,
@@ -170,28 +170,28 @@ export const MemberDashboard: React.FC<MemberDashboardProps> = ({
             </div>
 
             <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight leading-tight pt-1">
-              Credencial QR Molinete
+              Credencial DNI
             </h3>
             <p className="text-xs text-slate-900/80 font-medium">
               {isExpired && !isInGrace
                 ? 'Acceso bloqueado. Requiere regularizar cuota.'
-                : 'Pase activo. Apoyá el código en el lector de recepción.'}
+                : 'Mostrá tu DNI en recepción. Ingreso solo con documento.'}
             </p>
           </div>
 
           <div className="mt-5 p-3 rounded-2xl bg-slate-950 text-white flex items-center justify-between z-10 shadow-lg">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-bold">
-                <QrCode className="w-5 h-5" />
+                <IdCard className="w-5 h-5" />
               </div>
               <div className="text-left">
-                <p className="font-mono text-[10px] text-slate-400">{currentUser.qrCode}</p>
-                <p className="text-xs font-bold text-emerald-400">Tocar para ampliar</p>
+                <p className="font-mono text-sm font-black tracking-widest text-white">{currentUser.dni || 'Sin DNI'}</p>
+                <p className="text-xs font-bold text-emerald-400">Tocar para ampliar DNI</p>
               </div>
             </div>
 
             <span className="text-[10px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-black">
-              MOSTRAR
+              DNI
             </span>
           </div>
         </div>
