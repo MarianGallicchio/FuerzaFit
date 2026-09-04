@@ -1,11 +1,11 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Compat CJS/ESM: en build CJS import.meta no existe, usar cwd
+const __dirname = process.cwd();
+const __filename = path.join(__dirname, 'server.ts');
 
 async function startServer() {
   const app = express();
