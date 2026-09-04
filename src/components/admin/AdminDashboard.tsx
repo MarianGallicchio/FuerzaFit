@@ -5,7 +5,7 @@ import {
   Users,
   CreditCard,
   Calendar,
-  QrCode,
+  IdCard,
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
@@ -429,11 +429,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateTab })
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-                <QrCode className="w-4 h-4" />
+                <IdCard className="w-4 h-4" />
               </div>
               <div>
                 <h3 className="font-extrabold text-base text-white">Molinete en Vivo</h3>
-                <p className="text-xs text-slate-400">Últimos accesos escaneados</p>
+                <p className="text-xs text-slate-400">Últimos accesos por DNI</p>
               </div>
             </div>
 
